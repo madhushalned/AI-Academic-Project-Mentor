@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import students_collection
 
@@ -8,26 +8,29 @@ def create_student(student):
     Create a new student in MongoDB.
     """
 
-    student_data = student.model_dump()
-
-    # Check if student already exists
+    # Check whether student_id already exists
     existing_student = students_collection.find_one(
-        {"student_id": student_data["student_id"]}
+        {"student_id": student.student_id}
     )
 
     if existing_student:
-        raise ValueError("Student already exists")
+        raise ValueError(
+            f"Student with student_id '{student.student_id}' already exists"
+        )
 
-    # Automatically add creation time
-    student_data["created_at"] = datetime.utcnow()
+    student_data = student.model_dump()
 
-    # Insert student into MongoDB
+    # Automatically generate creation timestamp
+    student_data["created_at"] = datetime.now(timezone.utc)
+
     result = students_collection.insert_one(student_data)
 
-    # Return the inserted student ID as a string
-    student_data["_id"] = str(result.inserted_id)
+    # Return the inserted document
+    created_student = students_collection.find_one(
+        {"_id": result.inserted_id}
+    )
 
-    return student_data
+    return created_student
 
 
 def get_students():
@@ -35,18 +38,14 @@ def get_students():
     Get all students from MongoDB.
     """
 
-    students = list(students_collection.find())
-
-    return students
+    return list(students_collection.find())
 
 
-def get_student_by_id(student_id):
+def get_student_by_id(student_id: str):
     """
     Get one student using student_id.
     """
 
-    student = students_collection.find_one(
+    return students_collection.find_one(
         {"student_id": student_id}
     )
-
-    return student
