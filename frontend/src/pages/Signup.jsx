@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import "./Signup.css";
+
 const Signup = () => {
   const navigate = useNavigate();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -16,16 +18,47 @@ const Signup = () => {
 
   const password = watch("password");
 
-  const onSubmit = (data) => {
-  
-    // Example:
-    // Send data to your backend here
-    //
-   
+  // Connect Signup form to FastAPI
+  const onSubmit = async (data) => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/students/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // Using email as the student ID for the current backend schema
+          student_id: data.email,
+          name: data.fullName,
+          email: data.email,
+          password: data.password,
+          team_id: null,
+          skills: {},
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.detail || "Signup failed");
+        return;
+      }
+
+      console.log("Signup successful:", result);
+
+      alert("Account created successfully!");
+
+      // Redirect to login page
+      navigate("/login");
+    } catch (error) {
+      console.error("Signup error:", error);
+      alert("Unable to connect to the server.");
+    }
   };
 
   return (
     <div className="signup-page">
+
       {/* Decorative background elements */}
       <div className="background-circle circle-top"></div>
       <div className="background-circle circle-bottom"></div>
@@ -38,8 +71,6 @@ const Signup = () => {
 
         {/* Header */}
         <div className="brand-section">
-          
-
           <div className="brand-text">
             <h1>AI Academic Project Mentor</h1>
             <p>Progress Tracking &amp; Mentorship Platform</p>
@@ -186,8 +217,7 @@ const Signup = () => {
                   required: "Password is required",
                   minLength: {
                     value: 8,
-                    message:
-                      "Password must be at least 8 characters",
+                    message: "Password must be at least 8 characters",
                   },
                 })}
               />
@@ -353,14 +383,16 @@ const Signup = () => {
           <button
             type="button"
             className="login-link"
-              onClick={() => navigate("/login")}
+            onClick={() => navigate("/login")}
           >
             Log in
           </button>
         </div>
+
       </div>
     </div>
   );
 };
 
 export default Signup;
+

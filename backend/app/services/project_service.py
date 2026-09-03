@@ -56,3 +56,19 @@ def get_project_by_id(project_id):
     )
 
     return project
+    
+def update_project_ai_analysis(project_id, ai_analysis):
+    result = projects_collection.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "ai_analysis": ai_analysis
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        return False
+
+    return True
+    

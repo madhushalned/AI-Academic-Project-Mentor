@@ -13,15 +13,41 @@ handleSubmit,
 formState: { errors },
 } = useForm();
 
-const onSubmit = (data) => {
-//console.log("Login Data:", data);
+const onSubmit = async (data) => {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/students/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: data.email,
+        password: data.password,
+      }),
+    });
 
-// Backend login will be connected here later.
+    const result = await response.json();
 
-// Temporary navigation for frontend testing
-//navigate("/dashboard");
+    if (!response.ok) {
+      alert(result.detail || "Invalid email or password");
+      return;
+    }
 
+    console.log("Login successful:", result);
 
+    // Save logged-in student information
+    localStorage.setItem(
+      "student",
+      JSON.stringify(result.student)
+    );
+
+    // Navigate to dashboard
+    navigate("/dashboard");
+
+  } catch (error) {
+    console.error("Login error:", error);
+    alert("Unable to connect to the server.");
+  }
 };
 
 return ( <div className="login-page">

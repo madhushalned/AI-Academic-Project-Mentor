@@ -11,10 +11,10 @@ router = APIRouter(
 
 
 class ProjectAnalysisRequest(BaseModel):
+    project_id: str
     title: str
     description: str
     domain: str
-
 
 @router.post("/analyze-project")
 def analyze_project_endpoint(project: ProjectAnalysisRequest):
@@ -23,3 +23,5 @@ def analyze_project_endpoint(project: ProjectAnalysisRequest):
     return {
         "analysis": result
     }
+
+

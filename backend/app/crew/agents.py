@@ -1,8 +1,9 @@
 from crewai import Agent, LLM
 
 llm = LLM(
-    model="ollama/llama3.2",
+    model="ollama/llama3.2:latest",
     base_url="http://localhost:11434",
+    api_key="ollama",
     temperature=0.1,
     max_tokens=500
 )

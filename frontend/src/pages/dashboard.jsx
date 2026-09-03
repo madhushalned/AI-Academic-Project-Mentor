@@ -2,131 +2,179 @@ import { useState } from 'react';
 import Sidebar from '../common/Sidebar';
 import Header from '../common/Header';
 import IdeaSubmissionModal from '../component/ideaSubmission';
-import ProjectDetailModal from '../component/ProjectDetailModal';
 
-const Dashboard = () => {
+const dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
 
   const handleLogout = () => {
-    // Authentication cleanup will go here later
-   // console.log('Logging out user...');
+    localStorage.removeItem('student');
+    console.log('Logging out user...');
   };
 
-  const handleIdeaSubmit = (ideaText) => {
-    const today = new Date().toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+  const handleIdeaSubmit = async ({ title, description, domain }) => {
+    try {
+      // -------------------------------------------------
+      // 1. Get logged-in student
+      // -------------------------------------------------
+      const student = JSON.parse(localStorage.getItem('student'));
 
-    const newProject = {
-      id: Date.now(),
-
-      title:
-        ideaText.length > 30
-          ? `${ideaText.substring(0, 30)}...`
-          : ideaText,
-
-      description: ideaText,
-
-      status: 'Idea Submitted',
-
-      dateText: `Submitted on ${today}`,
-
-      // Initial project tasks
-      tasks: [
-        {
-          id: 1,
-          text: 'Initial Scope & Architecture Brief',
-          completed: true
-        },
-        {
-          id: 2,
-          text: 'Feasibility Analysis',
-          completed: false
-        },
-        {
-          id: 3,
-          text: 'Project Scope & Tech Stack',
-          completed: false
-        },
-        {
-          id: 4,
-          text: 'Milestone & Timeline Planning',
-          completed: false
-        },
-        {
-          id: 5,
-          text: 'Risk Assessment',
-          completed: false
-        }
-      ]
-    };
-
-    setProjects((previousProjects) => [
-      newProject,
-      ...previousProjects
-    ]);
-
-    setIsModalOpen(false);
-  };
-
-  // Open project details
-  const handleProjectOpen = (project) => {
-    setSelectedProject(project);
-  };
-
-  // Close project details
-  const handleProjectClose = () => {
-    setSelectedProject(null);
-  };
-
-  // Toggle project task
-  const handleToggleTask = (projectId, taskId) => {
-    setProjects((previousProjects) =>
-      previousProjects.map((project) => {
-        if (project.id !== projectId) {
-          return project;
-        }
-
-        const updatedTasks = project.tasks.map((task) =>
-          task.id === taskId
-            ? {
-                ...task,
-                completed: !task.completed
-              }
-            : task
-        );
-
-        return {
-          ...project,
-          tasks: updatedTasks
-        };
-      })
-    );
-
-    // Update the currently opened project
-    setSelectedProject((previousProject) => {
-      if (!previousProject) {
-        return null;
+      if (!student) {
+        alert('Please log in again.');
+        return;
       }
 
-      const updatedTasks = previousProject.tasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              completed: !task.completed
-            }
-          : task
+      // -------------------------------------------------
+      // 2. Prepare project data
+      // -------------------------------------------------
+      const projectData = {
+        project_id: `proj-${Date.now()}`,
+        student_id: student.student_id,
+        title: title,
+        description: description,
+        domain: domain,
+        status: 'not_started'
+      };
+
+      console.log('PROJECT DATA:', projectData);
+
+      // -------------------------------------------------
+      // 3. Create project in MongoDB through FastAPI
+      // -------------------------------------------------
+      const projectResponse = await fetch(
+        'http://127.0.0.1:8000/projects/',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(projectData)
+        }
       );
 
-      return {
-        ...previousProject,
-        tasks: updatedTasks
+      const projectResult = await projectResponse.json();
+
+      if (!projectResponse.ok) {
+        console.error('PROJECT API ERROR:', projectResult);
+
+        alert(
+          typeof projectResult.detail === 'string'
+            ? projectResult.detail
+            : JSON.stringify(projectResult.detail, null, 2)
+        );
+
+        return;
+      }
+
+      console.log(
+        'PROJECT CREATED SUCCESSFULLY:',
+        projectResult
+      );
+
+      // -------------------------------------------------
+      // 4. Add project to dashboard
+      // -------------------------------------------------
+      const today = new Date().toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+
+      const newProject = {
+        id: projectData.project_id,
+        title: title,
+        description: description,
+        domain: domain,
+        status: 'Under Analysis',
+        dateText: `Submitted on ${today}`
       };
-    });
+
+      setProjects((previousProjects) => [
+        newProject,
+        ...previousProjects
+      ]);
+
+      setIsModalOpen(false);
+
+      // -------------------------------------------------
+      // 5. Send project to AI analysis endpoint
+      // -------------------------------------------------
+      setIsAnalyzing(true);
+
+      console.log(
+        'SENDING PROJECT TO AI ANALYSIS:',
+        {
+          title,
+          description,
+          domain
+        }
+      );
+
+      const aiResponse = await fetch(
+        'http://127.0.0.1:8000/ai/analyze-project',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          
+          body: JSON.stringify({
+            project_id: projectData.project_id,
+            title: title,
+            description: description,
+            domain: domain
+          })
+        }
+      );
+
+      const aiData = await aiResponse.json();
+
+      if (!aiResponse.ok) {
+        console.error(
+          'AI API ERROR:',
+          aiData
+        );
+
+        alert(
+          typeof aiData.detail === 'string'
+            ? aiData.detail
+            : JSON.stringify(aiData.detail, null, 2)
+        );
+
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // -------------------------------------------------
+      // 6. Store AI result
+      // -------------------------------------------------
+      console.log(
+        'AI ANALYSIS RESULT:',
+        aiData
+      );
+
+      setAiResult(aiData);
+
+      setIsAnalyzing(false);
+
+      alert(
+        'Project submitted and AI analysis completed successfully!'
+      );
+
+    } catch (error) {
+      console.error(
+        'PROJECT / AI INTEGRATION ERROR:',
+        error
+      );
+
+      setIsAnalyzing(false);
+
+      alert(
+        'Unable to connect to the server.'
+      );
+    }
   };
 
   const getBadgeStyle = (status) => {
@@ -166,12 +214,10 @@ const Dashboard = () => {
   return (
     <div style={styles.layout}>
 
-      {/* Sidebar */}
       <Sidebar onLogout={handleLogout} />
 
       <div style={styles.mainContent}>
 
-        {/* Header */}
         <Header
           user={{
             name: 'Student',
@@ -181,7 +227,9 @@ const Dashboard = () => {
 
         <main style={styles.pageBody}>
 
-          {/* Page Header */}
+          {/* ------------------------------------------
+              Page Header
+          ------------------------------------------ */}
           <div style={styles.bannerRow}>
 
             <div>
@@ -190,7 +238,8 @@ const Dashboard = () => {
               </h1>
 
               <p style={styles.welcomeSubtitle}>
-                Manage and track all your academic projects in one place.
+                Manage and track all your academic projects
+                in one place.
               </p>
             </div>
 
@@ -204,10 +253,22 @@ const Dashboard = () => {
 
           </div>
 
-          {/* Project Section */}
+          {/* ------------------------------------------
+              Analysis Status
+          ------------------------------------------ */}
+          {isAnalyzing && (
+            <div style={styles.analysisBox}>
+              AI is analyzing your project...
+            </div>
+          )}
+
+          {/* ------------------------------------------
+              Project Card
+          ------------------------------------------ */}
           <section style={styles.cardContainer}>
 
             <div style={styles.containerHeader}>
+
               <h2 style={styles.containerTitle}>
                 Your Project Ideas
               </h2>
@@ -215,14 +276,15 @@ const Dashboard = () => {
               <p style={styles.containerSubtitle}>
                 All the project ideas you have submitted.
               </p>
+
             </div>
 
             {/* Empty State */}
             {projects.length === 0 ? (
 
               <div style={styles.emptyMessage}>
-                No project ideas submitted yet. Click above to submit
-                your first idea.
+                No project ideas submitted yet.
+                Click above to submit your first idea.
               </div>
 
             ) : (
@@ -247,6 +309,12 @@ const Dashboard = () => {
                         {project.description}
                       </p>
 
+                      {project.domain && (
+                        <p style={styles.projectDomain}>
+                          Domain: {project.domain}
+                        </p>
+                      )}
+
                     </div>
 
                     {/* Status and Date */}
@@ -268,18 +336,14 @@ const Dashboard = () => {
                     </div>
 
                     {/* Arrow */}
-                    <button
-                      type="button"
-                      style={styles.arrowButton}
-                      onClick={() => handleProjectOpen(project)}
-                      aria-label={`View ${project.title}`}
-                    >
+                    <div style={styles.arrowContainer}>
+
                       <svg
                         width="18"
                         height="18"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="currentColor"
+                        stroke="#94a3b8"
                         strokeWidth="2"
                       >
                         <path
@@ -288,7 +352,8 @@ const Dashboard = () => {
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </button>
+
+                    </div>
 
                   </div>
 
@@ -305,22 +370,39 @@ const Dashboard = () => {
 
           </section>
 
-        </main>
+          {/* ------------------------------------------
+              AI Analysis Result
+          ------------------------------------------ */}
+          {aiResult && (
+            <section style={styles.aiCard}>
 
+              <h2 style={styles.aiTitle}>
+                AI Project Analysis
+              </h2>
+
+              <pre style={styles.aiResult}>
+                {typeof aiResult === 'string'
+                  ? aiResult
+                  : JSON.stringify(
+                      aiResult,
+                      null,
+                      2
+                    )}
+              </pre>
+
+            </section>
+          )}
+
+        </main>
       </div>
 
-      {/* Idea Submission Modal */}
+      {/* ------------------------------------------
+          Idea Submission Modal
+      ------------------------------------------ */}
       <IdeaSubmissionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleIdeaSubmit}
-      />
-
-      {/* Project Detail Modal */}
-      <ProjectDetailModal
-        project={selectedProject}
-        onClose={handleProjectClose}
-        onToggleTask={handleToggleTask}
       />
 
     </div>
@@ -328,12 +410,12 @@ const Dashboard = () => {
 };
 
 const styles = {
+
   layout: {
     display: 'flex',
     width: '100%',
     minHeight: '100vh',
-   /* backgroundColor: '#f8fafc',*/
-   background: '#f4f9ff',
+    backgroundColor: '#f8fafc',
     margin: 0,
     padding: 0
   },
@@ -383,6 +465,17 @@ const styles = {
     whiteSpace: 'nowrap'
   },
 
+  analysisBox: {
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '20px',
+    color: '#1d4ed8',
+    fontSize: '14px',
+    fontWeight: '500'
+  },
+
   cardContainer: {
     backgroundColor: '#ffffff',
     borderRadius: '12px',
@@ -426,7 +519,8 @@ const styles = {
     padding: '16px 20px',
     borderRadius: '10px',
     border: '1px solid #f1f5f9',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    cursor: 'pointer'
   },
 
   projectInfo: {
@@ -447,6 +541,12 @@ const styles = {
     color: '#64748b',
     margin: 0,
     lineHeight: '1.4'
+  },
+
+  projectDomain: {
+    fontSize: '12px',
+    color: '#64748b',
+    margin: '6px 0 0 0'
   },
 
   statusContainer: {
@@ -470,19 +570,11 @@ const styles = {
     color: '#94a3b8'
   },
 
-  arrowButton: {
-    width: '34px',
-    height: '34px',
+  arrowContainer: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
-    border: 'none',
-    backgroundColor: 'transparent',
-    color: '#94a3b8',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    padding: 0
+    flexShrink: 0
   },
 
   footerText: {
@@ -490,7 +582,34 @@ const styles = {
     fontSize: '12px',
     color: '#94a3b8',
     marginTop: '20px'
+  },
+
+  aiCard: {
+    marginTop: '24px',
+    backgroundColor: '#ffffff',
+    borderRadius: '12px',
+    border: '1px solid #e2e8f0',
+    padding: '24px'
+  },
+
+  aiTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#0f172a',
+    margin: '0 0 16px 0'
+  },
+
+  aiResult: {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    backgroundColor: '#f8fafc',
+    borderRadius: '8px',
+    padding: '16px',
+    fontSize: '13px',
+    lineHeight: '1.5',
+    color: '#334155',
+    overflowX: 'auto'
   }
 };
 
-export default Dashboard;
+export default dashboard;
