@@ -17,18 +17,11 @@ const Signup = () => {
   const password = watch("password");
 
   const onSubmit = (data) => {
-    console.log("Signup Data:", data);
-
+  
     // Example:
     // Send data to your backend here
     //
-    // fetch("http://localhost:5000/api/signup", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify(data),
-    // });
+   
   };
 
   return (
