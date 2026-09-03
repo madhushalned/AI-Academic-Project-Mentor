@@ -8,13 +8,15 @@ const ForgotPassword = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    console.log("Password reset requested");
+   // console.log("Password reset requested");
 
     // Backend password reset logic will be connected here later.
   };
 
   return (
     <div className="forgot-password-page">
+     <div className="background-circle circle-top"></div> <div className="background-circle circle-bottom"></div>
+      
       <div className="forgot-password-card">
 
         {/* Brand */}

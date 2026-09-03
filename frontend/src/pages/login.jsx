@@ -25,7 +25,8 @@ const onSubmit = (data) => {
 };
 
 return ( <div className="login-page">
-{/* Decorative background elements */} <div className="background-circle circle-top"></div> <div className="background-circle circle-bottom"></div>
+{/* Decorative background elements */}
+ <div className="background-circle circle-top"></div> <div className="background-circle circle-bottom"></div>
 
 
   <div className="dot-pattern dots-top"></div>

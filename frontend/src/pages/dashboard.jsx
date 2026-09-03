@@ -2,14 +2,16 @@ import { useState } from 'react';
 import Sidebar from '../common/Sidebar';
 import Header from '../common/Header';
 import IdeaSubmissionModal from '../component/ideaSubmission';
+import ProjectDetailModal from '../component/ProjectDetailModal';
 
-const dashboard = () => {
+const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [projects, setProjects] = useState([]);
 
   const handleLogout = () => {
     // Authentication cleanup will go here later
-    console.log('Logging out user...');
+   // console.log('Logging out user...');
   };
 
   const handleIdeaSubmit = (ideaText) => {
@@ -21,13 +23,46 @@ const dashboard = () => {
 
     const newProject = {
       id: Date.now(),
+
       title:
         ideaText.length > 30
           ? `${ideaText.substring(0, 30)}...`
           : ideaText,
+
       description: ideaText,
+
       status: 'Idea Submitted',
-      dateText: `Submitted on ${today}`
+
+      dateText: `Submitted on ${today}`,
+
+      // Initial project tasks
+      tasks: [
+        {
+          id: 1,
+          text: 'Initial Scope & Architecture Brief',
+          completed: true
+        },
+        {
+          id: 2,
+          text: 'Feasibility Analysis',
+          completed: false
+        },
+        {
+          id: 3,
+          text: 'Project Scope & Tech Stack',
+          completed: false
+        },
+        {
+          id: 4,
+          text: 'Milestone & Timeline Planning',
+          completed: false
+        },
+        {
+          id: 5,
+          text: 'Risk Assessment',
+          completed: false
+        }
+      ]
     };
 
     setProjects((previousProjects) => [
@@ -36,6 +71,62 @@ const dashboard = () => {
     ]);
 
     setIsModalOpen(false);
+  };
+
+  // Open project details
+  const handleProjectOpen = (project) => {
+    setSelectedProject(project);
+  };
+
+  // Close project details
+  const handleProjectClose = () => {
+    setSelectedProject(null);
+  };
+
+  // Toggle project task
+  const handleToggleTask = (projectId, taskId) => {
+    setProjects((previousProjects) =>
+      previousProjects.map((project) => {
+        if (project.id !== projectId) {
+          return project;
+        }
+
+        const updatedTasks = project.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                completed: !task.completed
+              }
+            : task
+        );
+
+        return {
+          ...project,
+          tasks: updatedTasks
+        };
+      })
+    );
+
+    // Update the currently opened project
+    setSelectedProject((previousProject) => {
+      if (!previousProject) {
+        return null;
+      }
+
+      const updatedTasks = previousProject.tasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              completed: !task.completed
+            }
+          : task
+      );
+
+      return {
+        ...previousProject,
+        tasks: updatedTasks
+      };
+    });
   };
 
   const getBadgeStyle = (status) => {
@@ -74,14 +165,25 @@ const dashboard = () => {
 
   return (
     <div style={styles.layout}>
+
+      {/* Sidebar */}
       <Sidebar onLogout={handleLogout} />
 
       <div style={styles.mainContent}>
-        <Header user={{ name: 'Student', role: 'Student' }} />
+
+        {/* Header */}
+        <Header
+          user={{
+            name: 'Student',
+            role: 'Student'
+          }}
+        />
 
         <main style={styles.pageBody}>
+
           {/* Page Header */}
           <div style={styles.bannerRow}>
+
             <div>
               <h1 style={styles.welcomeTitle}>
                 Welcome back, Student
@@ -99,10 +201,12 @@ const dashboard = () => {
             >
               + Submit New Project Idea
             </button>
+
           </div>
 
-          {/* Project Card */}
+          {/* Project Section */}
           <section style={styles.cardContainer}>
+
             <div style={styles.containerHeader}>
               <h2 style={styles.containerTitle}>
                 Your Project Ideas
@@ -115,19 +219,26 @@ const dashboard = () => {
 
             {/* Empty State */}
             {projects.length === 0 ? (
+
               <div style={styles.emptyMessage}>
                 No project ideas submitted yet. Click above to submit
                 your first idea.
               </div>
+
             ) : (
+
               <div style={styles.projectList}>
+
                 {projects.map((project) => (
+
                   <div
                     key={project.id}
                     style={styles.projectRow}
                   >
+
                     {/* Project Information */}
                     <div style={styles.projectInfo}>
+
                       <h3 style={styles.projectTitle}>
                         {project.title}
                       </h3>
@@ -135,10 +246,12 @@ const dashboard = () => {
                       <p style={styles.projectDescription}>
                         {project.description}
                       </p>
+
                     </div>
 
                     {/* Status and Date */}
                     <div style={styles.statusContainer}>
+
                       <span
                         style={{
                           ...styles.statusBadge,
@@ -151,16 +264,22 @@ const dashboard = () => {
                       <span style={styles.dateText}>
                         {project.dateText}
                       </span>
+
                     </div>
 
                     {/* Arrow */}
-                    <div style={styles.arrowContainer}>
+                    <button
+                      type="button"
+                      style={styles.arrowButton}
+                      onClick={() => handleProjectOpen(project)}
+                      aria-label={`View ${project.title}`}
+                    >
                       <svg
                         width="18"
                         height="18"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="#94a3b8"
+                        stroke="currentColor"
                         strokeWidth="2"
                       >
                         <path
@@ -169,18 +288,25 @@ const dashboard = () => {
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </div>
+                    </button>
+
                   </div>
+
                 ))}
+
               </div>
+
             )}
 
             {/* Footer */}
             <div style={styles.footerText}>
               Showing {projects.length} of {projects.length} projects
             </div>
+
           </section>
+
         </main>
+
       </div>
 
       {/* Idea Submission Modal */}
@@ -189,6 +315,14 @@ const dashboard = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleIdeaSubmit}
       />
+
+      {/* Project Detail Modal */}
+      <ProjectDetailModal
+        project={selectedProject}
+        onClose={handleProjectClose}
+        onToggleTask={handleToggleTask}
+      />
+
     </div>
   );
 };
@@ -198,7 +332,8 @@ const styles = {
     display: 'flex',
     width: '100%',
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
+   /* backgroundColor: '#f8fafc',*/
+   background: '#f4f9ff',
     margin: 0,
     padding: 0
   },
@@ -291,8 +426,7 @@ const styles = {
     padding: '16px 20px',
     borderRadius: '10px',
     border: '1px solid #f1f5f9',
-    backgroundColor: '#ffffff',
-    cursor: 'pointer'
+    backgroundColor: '#ffffff'
   },
 
   projectInfo: {
@@ -336,11 +470,19 @@ const styles = {
     color: '#94a3b8'
   },
 
-  arrowContainer: {
+  arrowButton: {
+    width: '34px',
+    height: '34px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0
+    flexShrink: 0,
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: '#94a3b8',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    padding: 0
   },
 
   footerText: {
@@ -351,4 +493,4 @@ const styles = {
   }
 };
 
-export default dashboard;
+export default Dashboard;
