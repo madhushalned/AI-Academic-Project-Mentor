@@ -3,6 +3,25 @@ from pymongo.errors import CollectionInvalid
 
 db = get_db()
 
+blueprint_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "original_idea", "status"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "original_idea": {"bsonType": "string"},
+            "status": {"enum": ["pending", "in_progress", "completed"]},
+            "feasibility": {"bsonType": ["object", "null"]},
+            "scope": {"bsonType": ["object", "null"]},
+            "tech_stack": {"bsonType": ["object", "null"]},
+            "planning": {"bsonType": ["object", "null"]},
+            "risk": {"bsonType": ["object", "null"]},
+            "created_at": {"bsonType": "date"},
+            "updated_at": {"bsonType": "date"}
+        }
+    }
+}
+
 student_validator = {
     "$jsonSchema": {
         "bsonType": "object",
@@ -44,9 +63,15 @@ def create_collections():
         print("Created 'skill_assessments' collection.")
     except CollectionInvalid:
         print("'skill_assessments' already exists — skipping.")
+    try:
+        db.create_collection("blueprints", validator=blueprint_validator)
+        print("Created 'blueprints' collection.")
+    except CollectionInvalid:
+        print("'blueprints' already exists — skipping.")
 
     db.students.create_index("student_id", unique=True)
     db.skill_assessments.create_index("student_id")
+    db.blueprints.create_index("student_id")
     print("Indexes created.")
 
 if __name__ == "__main__":
