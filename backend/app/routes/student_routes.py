@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from app.services.student_service import login_student
 
 from app.schemas.student_schema import StudentCreate
 from app.services.student_service import (
@@ -67,3 +69,23 @@ def get_single_student(student_id: str):
         student["_id"] = str(student["_id"])
 
     return student
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@router.post("/login")
+def student_login(data: LoginRequest):
+    student = login_student(data.email, data.password)
+
+    if student is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    return {
+        "message": "Login successful",
+        "student": student
+    }
