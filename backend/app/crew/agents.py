@@ -5,7 +5,7 @@ llm = LLM(
     base_url="http://localhost:11434",
     api_key="ollama",
     temperature=0.1,
-    max_tokens=500
+    max_tokens=1500
 )
 
 project_analysis_agent = Agent(

@@ -62,7 +62,8 @@ def update_project_ai_analysis(project_id, ai_analysis):
         {"project_id": project_id},
         {
             "$set": {
-                "ai_analysis": ai_analysis
+                "ai_analysis": ai_analysis,
+                "status": "Analysis Completed"
             }
         }
     )

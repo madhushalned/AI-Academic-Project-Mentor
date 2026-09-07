@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-
 from app.schemas.project_schema import ProjectCreate
+from app.services.ai_service import analyze_project
 from app.services.project_service import (
     create_project,
     get_projects,
@@ -29,6 +29,28 @@ def create_new_project(project: ProjectCreate):
             detail=str(e)
         )
 
+@router.post("/{project_id}/analyze")
+def analyze_existing_project(project_id: str):
+    """
+    Run AI analysis for an existing project.
+    """
+    project = get_project_by_id(project_id)
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
+    try:
+        analysis = analyze_project(project)
+        return analysis
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI analysis failed: {str(e)}"
+        )
 
 @router.get("/")
 def get_all_projects():

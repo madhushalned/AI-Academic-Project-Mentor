@@ -18,3 +18,5 @@ class ProjectResponse(BaseModel):
     description: Optional[str] = None
     domain: Optional[str] = None
     status: str = "not_started"
+    ai_analysis: Optional[dict] = None
+    
