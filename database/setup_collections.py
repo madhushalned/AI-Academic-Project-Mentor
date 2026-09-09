@@ -72,6 +72,9 @@ def create_collections():
     db.students.create_index("student_id", unique=True)
     db.skill_assessments.create_index("student_id")
     db.blueprints.create_index("student_id")
+    db.skill_assessments.create_index([("student_id", 1), ("assessment_date", -1)])
+    db.blueprints.create_index([("student_id", 1), ("status", 1)])
+    print("Compound indexes created.")
     print("Indexes created.")
 
 if __name__ == "__main__":
