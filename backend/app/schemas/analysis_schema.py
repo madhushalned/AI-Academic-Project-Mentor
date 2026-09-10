@@ -1,9 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 
 
 class FeasibilityAnalysis(BaseModel):
-    score: Optional[float] = None
+    score: Optional[float] = Field(default=None, ge=0, le=10)
     decision: Optional[str] = None
     strengths: List[str] = Field(default_factory=list)
     concerns: List[str] = Field(default_factory=list)
@@ -28,6 +28,22 @@ class TechnologyRecommendation(BaseModel):
     apis: List[str] = Field(default_factory=list)
     justification: Optional[str] = None
 
+    @field_validator(
+        "programming_languages",
+        "frameworks",
+        "database",
+        "ai_ml",
+        "tools",
+        "apis"
+    )
+    @classmethod
+    def clean_empty_values(cls, values):
+        invalid_values = {"none", "n/a", "na", "null", ""}
+        return [
+            value for value in values
+            if isinstance(value, str)
+            and value.strip().lower() not in invalid_values
+        ]
 
 class Milestone(BaseModel):
     week: Optional[int] = None
