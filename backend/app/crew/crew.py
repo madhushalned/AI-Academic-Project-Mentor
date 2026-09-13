@@ -5,7 +5,8 @@ from app.crew.agents import (
     feasibility_agent,
     technology_agent,
     planning_agent,
-    risk_agent
+    risk_agent,
+    progress_mentor_agent
 )
 
 from app.crew.tasks import (
@@ -13,7 +14,8 @@ from app.crew.tasks import (
     feasibility_task,
     technology_task,
     planning_task,
-    risk_task
+    risk_task,
+    progress_evaluation_task
 )
 
 llm = LLM(
@@ -41,6 +43,18 @@ project_planning_crew = Crew(
         risk_task
     ],
 
+    process=Process.sequential,
+    verbose=True
+)
+
+
+progress_evaluation_crew = Crew(
+    agents=[
+        progress_mentor_agent
+    ],
+    tasks=[
+        progress_evaluation_task
+    ],
     process=Process.sequential,
     verbose=True
 )

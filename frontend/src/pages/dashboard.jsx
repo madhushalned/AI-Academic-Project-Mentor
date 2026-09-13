@@ -232,14 +232,7 @@ const dashboard = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            project_id:
-              projectData.project_id,
-            title: title,
-            description: description,
-            domain: domain
-          })
+          }
         }
       );
 
