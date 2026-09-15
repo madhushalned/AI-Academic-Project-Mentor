@@ -22,7 +22,7 @@ const AIAnalysis = ({ project, onClose }) => {
    
   */
 
-  const analysis = project.aiAnalysis;
+  const analysis =project.ai_analysis;
 
   return (
     <div style={styles.overlay}>
