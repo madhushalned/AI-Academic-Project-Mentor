@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import Sidebar from '../common/Sidebar';
-import Header from '../common/Header';
+import Sidebar from '../common/sidebar';
+import Header from '../common/header';
 import IdeaSubmissionModal from '../component/ideaSubmission';
+import AIAnalysis from '../component/AIAnalysis';
 
-const dashboard = () => {
+const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // -------------------------------------------------
-  // Load existing projects from MongoDB
-  // -------------------------------------------------
+  // =====================================================
+  // LOAD PROJECTS
+  // =====================================================
   useEffect(() => {
     const loadProjects = async () => {
       try {
@@ -31,34 +32,46 @@ const dashboard = () => {
         const data = await response.json();
 
         if (!response.ok) {
-          console.error(
-            'PROJECT LOAD ERROR:',
-            data
-          );
+          console.error('PROJECT LOAD ERROR:', data);
           return;
         }
 
-        // Only show projects of logged-in student
+        // Only show projects belonging to logged-in student
         const studentProjects = data.filter(
           (project) =>
-            project.student_id === student.student_id
+            String(project.student_id) ===
+            String(student.student_id)
         );
 
-        // Convert MongoDB project format
+        // Convert backend format to frontend format
         const formattedProjects = studentProjects.map(
           (project) => ({
             id: project.project_id,
             project_id: project.project_id,
             student_id: project.student_id,
-            title: project.title,
-            description: project.description,
-            domain: project.domain,
+
+            title: project.title || '',
+            description: project.description || '',
+            domain: project.domain || '',
+
+            problemStatement:
+              project.problemStatement ||
+              project.problem_statement ||
+              '',
+
+            expectedOutcome:
+              project.expectedOutcome ||
+              project.expected_outcome ||
+              '',
+
             status:
               project.status === 'not_started'
                 ? 'Under Analysis'
-                : project.status,
+                : project.status || 'Under Analysis',
+
             ai_analysis:
               project.ai_analysis || null,
+
             dateText: project.created_at
               ? `Submitted on ${new Date(
                   project.created_at
@@ -88,22 +101,22 @@ const dashboard = () => {
     loadProjects();
   }, []);
 
-  // -------------------------------------------------
-  // Logout
-  // -------------------------------------------------
+  // =====================================================
+  // LOGOUT
+  // =====================================================
   const handleLogout = () => {
     localStorage.removeItem('student');
+
     console.log('Logging out user...');
+
+    // If you have a login route, you can use:
+    // window.location.href = '/login';
   };
 
-  // -------------------------------------------------
-  // Submit project idea
-  // -------------------------------------------------
-  const handleIdeaSubmit = async ({
-    title,
-    description,
-    domain
-  }) => {
+  // =====================================================
+  // SUBMIT PROJECT IDEA
+  // =====================================================
+  const handleIdeaSubmit = async (formData) => {
     try {
       // -------------------------------------------------
       // 1. Get logged-in student
@@ -118,24 +131,43 @@ const dashboard = () => {
       }
 
       // -------------------------------------------------
-      // 2. Prepare project data
+      // 2. Get data from IdeaSubmission
+      // -------------------------------------------------
+      const title = formData.title?.trim() || '';
+      const description =
+        formData.description?.trim() || '';
+      const domain = formData.domain?.trim() || '';
+      const problemStatement =
+        formData.problemStatement?.trim() || '';
+      const expectedOutcome =
+        formData.expectedOutcome?.trim() || '';
+
+      // -------------------------------------------------
+      // 3. Create project ID
+      // -------------------------------------------------
+      const projectId = `proj-${Date.now()}`;
+
+      // -------------------------------------------------
+      // 4. Prepare project object
       // -------------------------------------------------
       const projectData = {
-        project_id: `proj-${Date.now()}`,
+        project_id: projectId,
         student_id: student.student_id,
-        title: title,
-        description: description,
-        domain: domain,
+        title,
+        description,
+        domain,
+        problemStatement,
+        expectedOutcome,
         status: 'not_started'
       };
 
-      console.log(
+     { /*console.log(
         'PROJECT DATA:',
         projectData
-      );
+      );*/}
 
       // -------------------------------------------------
-      // 3. Save project to MongoDB
+      // 5. Save project to MongoDB / FastAPI
       // -------------------------------------------------
       const projectResponse = await fetch(
         'http://127.0.0.1:8000/projects/',
@@ -171,12 +203,12 @@ const dashboard = () => {
       }
 
       console.log(
-        'PROJECT CREATED SUCCESSFULLY:',
+        'PROJECT CREATED:',
         projectResult
       );
 
       // -------------------------------------------------
-      // 4. Add project to React immediately
+      // 6. Add project immediately to UI
       // -------------------------------------------------
       const today =
         new Date().toLocaleDateString(
@@ -189,14 +221,20 @@ const dashboard = () => {
         );
 
       const newProject = {
-        id: projectData.project_id,
-        project_id: projectData.project_id,
-        student_id: projectData.student_id,
-        title: title,
-        description: description,
-        domain: domain,
+        id: projectId,
+        project_id: projectId,
+        student_id: student.student_id,
+
+        title,
+        description,
+        domain,
+        problemStatement,
+        expectedOutcome,
+
         status: 'Under Analysis',
+
         ai_analysis: null,
+
         dateText: `Submitted on ${today}`
       };
 
@@ -205,29 +243,24 @@ const dashboard = () => {
         ...previousProjects
       ]);
 
-      // Automatically show new project
+      // Automatically select newly submitted project
       setSelectedProject(newProject);
 
+      // Close modal
       setIsModalOpen(false);
 
       // -------------------------------------------------
-      // 5. Trigger AI analysis
+      // 7. Start AI analysis
       // -------------------------------------------------
       setIsAnalyzing(true);
 
       console.log(
-        'SENDING PROJECT TO AI ANALYSIS:',
-        {
-          project_id:
-            projectData.project_id,
-          title,
-          description,
-          domain
-        }
+        'STARTING AI ANALYSIS:',
+        projectId
       );
 
       const aiResponse = await fetch(
-        `http://127.0.0.1:8000/projects/${projectData.project_id}/analyze`,
+        `http://127.0.0.1:8000/projects/${projectId}/analyze`,
         {
           method: 'POST',
           headers: {
@@ -236,7 +269,8 @@ const dashboard = () => {
         }
       );
 
-      const aiData = await aiResponse.json();
+      const aiData =
+        await aiResponse.json();
 
       if (!aiResponse.ok) {
         console.error(
@@ -258,42 +292,55 @@ const dashboard = () => {
         return;
       }
 
-      // -------------------------------------------------
-      // 6. Store AI analysis in React
-      // -------------------------------------------------
       console.log(
         'AI ANALYSIS RESULT:',
         aiData
       );
 
+      // -------------------------------------------------
+      // 8. Get analysis
+      // -------------------------------------------------
       const analysis =
         aiData.analysis || aiData;
 
-      // Update selected project
-      setSelectedProject((previousProject) => {
-        if (!previousProject) {
-          return previousProject;
+      // -------------------------------------------------
+      // 9. Update selected project
+      // -------------------------------------------------
+      setSelectedProject(
+        (previousProject) => {
+          if (!previousProject) {
+            return previousProject;
+          }
+
+          return {
+            ...previousProject,
+
+            status: 'Analysis Completed',
+
+            ai_analysis: analysis
+          };
         }
+      );
 
-        return {
-          ...previousProject,
-          status: 'Analysis Completed',
-          ai_analysis: analysis
-        };
-      });
+      // -------------------------------------------------
+      // 10. Update project list
+      // -------------------------------------------------
+      setProjects(
+        (previousProjects) =>
+          previousProjects.map(
+            (project) =>
+              project.id === projectId
+                ? {
+                    ...project,
 
-      // Update project list
-      setProjects((previousProjects) =>
-        previousProjects.map((project) =>
-          project.id ===
-          projectData.project_id
-            ? {
-                ...project,
-                status: 'Analysis Completed',
-                ai_analysis: analysis
-              }
-            : project
-        )
+                    status:
+                      'Analysis Completed',
+
+                    ai_analysis:
+                      analysis
+                  }
+                : project
+          )
       );
 
       setIsAnalyzing(false);
@@ -315,41 +362,41 @@ const dashboard = () => {
     }
   };
 
-  // -------------------------------------------------
-  // Select project from dropdown
-  // -------------------------------------------------
-  const handleProjectSelect = (projectId) => {
-    const project = projects.find(
-      (item) =>
-        item.id === projectId
-    );
-
-    setSelectedProject(
-      project || null
-    );
+  // =====================================================
+  // OPEN PROJECT ANALYSIS
+  // =====================================================
+  const handleProjectOpen = (project) => {
+    setSelectedProject(project);
   };
 
-  // -------------------------------------------------
-  // Status badge styling
-  // -------------------------------------------------
+  // =====================================================
+  // CLOSE PROJECT ANALYSIS
+  // =====================================================
+  const handleProjectClose = () => {
+    setSelectedProject(null);
+  };
+
+  // =====================================================
+  // STATUS BADGE
+  // =====================================================
   const getBadgeStyle = (status) => {
     switch (status) {
-      case 'Idea Submitted':
+      case 'Analysis Completed':
+        return {
+          backgroundColor: '#dcfce7',
+          color: '#166534'
+        };
+
+      case 'Under Analysis':
         return {
           backgroundColor: '#dbeafe',
           color: '#1d4ed8'
         };
 
-      case 'Under Analysis':
+      case 'Idea Submitted':
         return {
-          backgroundColor: '#dcfce7',
-          color: '#15803d'
-        };
-
-      case 'Analysis Completed':
-        return {
-          backgroundColor: '#dcfce7',
-          color: '#15803d'
+          backgroundColor: '#fef3c7',
+          color: '#92400e'
         };
 
       case 'Draft':
@@ -372,13 +419,20 @@ const dashboard = () => {
     }
   };
 
+  // =====================================================
+  // UI
+  // =====================================================
   return (
-    <div style={styles.layout}>
+    <div style={styles.page}>
 
-      <Sidebar onLogout={handleLogout} />
+      {/* Sidebar */}
+      <Sidebar
+        onLogout={handleLogout}
+      />
 
       <div style={styles.mainContent}>
 
+        {/* Header */}
         <Header
           user={{
             name: 'Student',
@@ -386,440 +440,228 @@ const dashboard = () => {
           }}
         />
 
-        <main style={styles.pageBody}>
+        <main style={styles.content}>
 
-          {/* ------------------------------------------
-              Page Header
-          ------------------------------------------ */}
-          <div style={styles.bannerRow}>
+          {/* =================================================
+              PAGE HEADER
+          ================================================= */}
+          <div style={styles.pageHeader}>
 
             <div>
-              <h1 style={styles.welcomeTitle}>
-                Welcome back, Student
+              <h1 style={styles.heading}>
+                Dashboard
               </h1>
 
-              <p style={styles.welcomeSubtitle}>
-                Manage and track all your academic
-                projects in one place.
+              <p style={styles.subHeading}>
+                Track your academic projects and
+                AI-powered analysis.
               </p>
             </div>
 
             <button
               type="button"
-              style={styles.submitButton}
+              style={styles.submitIdeaButton}
               onClick={() =>
                 setIsModalOpen(true)
               }
             >
-              + Submit New Project Idea
+              + Submit Project Idea
             </button>
 
           </div>
 
-          {/* ------------------------------------------
-              AI Analysis Status
-          ------------------------------------------ */}
+          {/* =================================================
+              AI ANALYSIS STATUS
+          ================================================= */}
           {isAnalyzing && (
             <div style={styles.analysisBox}>
               AI is analyzing your project...
             </div>
           )}
 
-          {/* ------------------------------------------
-              Project List
-          ------------------------------------------ */}
-          <section style={styles.cardContainer}>
+          {/* =================================================
+              PROJECT SECTION
+          ================================================= */}
+          <section style={styles.section}>
 
-            <div style={styles.containerHeader}>
+            <div style={styles.sectionHeader}>
 
-              <h2 style={styles.containerTitle}>
-                Your Project Ideas
-              </h2>
-
-              <p style={styles.containerSubtitle}>
-                Select a project to view its
-                complete details and AI analysis.
-              </p>
-
-              {/* Project Dropdown */}
-              {projects.length > 0 && (
-                <select
-                  value={
-                    selectedProject?.id || ''
-                  }
-                  onChange={(e) =>
-                    handleProjectSelect(
-                      e.target.value
-                    )
-                  }
-                  style={styles.projectSelect}
+              <div>
+                <h2
+                  style={styles.sectionTitle}
                 >
+                  My Projects
+                </h2>
 
-                  <option value="">
-                    Select a project
-                  </option>
+                <p
+                  style={styles.sectionSubtitle}
+                >
+                  Track your submitted projects
+                  and view their AI-powered
+                  analysis.
+                </p>
+              </div>
 
-                  {projects.map((project) => (
-                    <option
-                      key={project.id}
-                      value={project.id}
-                    >
-                      {project.title}
-                    </option>
-                  ))}
-
-                </select>
-              )}
+              <span
+                style={styles.projectCount}
+              >
+                {projects.length} Project
+                {projects.length !== 1
+                  ? 's'
+                  : ''}
+              </span>
 
             </div>
 
-            {/* ------------------------------------------
-                Project List
-            ------------------------------------------ */}
-            {projects.length === 0 ? (
+            {/* =================================================
+                EMPTY STATE
+            ================================================= */}
+            {projects.length === 0 && (
+              <div style={styles.emptyState}>
 
-              <div style={styles.emptyMessage}>
-                No project ideas submitted yet.
-                Click above to submit your first
-                idea.
-              </div>
+                <h3
+                  style={styles.emptyTitle}
+                >
+                  No projects submitted yet
+                </h3>
 
-            ) : (
-
-              <div style={styles.projectList}>
-
-                {projects.map((project) => (
-
-                  <div
-                    key={project.id}
-                    style={{
-                      ...styles.projectRow,
-                      ...(selectedProject?.id ===
-                      project.id
-                        ? styles.selectedProjectRow
-                        : {})
-                    }}
-                    onClick={() =>
-                      setSelectedProject(
-                        project
-                      )
-                    }
-                  >
-
-                    {/* Project Information */}
-                    <div
-                      style={
-                        styles.projectInfo
-                      }
-                    >
-
-                      <h3
-                        style={
-                          styles.projectTitle
-                        }
-                      >
-                        {project.title}
-                      </h3>
-
-                      <p
-                        style={
-                          styles.projectDescription
-                        }
-                      >
-                        {project.description}
-                      </p>
-
-                      {project.domain && (
-                        <p
-                          style={
-                            styles.projectDomain
-                          }
-                        >
-                          Domain:{' '}
-                          {project.domain}
-                        </p>
-                      )}
-
-                    </div>
-
-                    {/* Status and Date */}
-                    <div
-                      style={
-                        styles.statusContainer
-                      }
-                    >
-
-                      <span
-                        style={{
-                          ...styles.statusBadge,
-                          ...getBadgeStyle(
-                            project.status
-                          )
-                        }}
-                      >
-                        {project.status}
-                      </span>
-
-                      <span
-                        style={
-                          styles.dateText
-                        }
-                      >
-                        {project.dateText}
-                      </span>
-
-                    </div>
-
-                    {/* Arrow */}
-                    <div
-                      style={
-                        styles.arrowContainer
-                      }
-                    >
-
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#94a3b8"
-                        strokeWidth="2"
-                      >
-                        <path
-                          d="M9 5l7 7-7 7"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-
-                    </div>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            )}
-
-            <div style={styles.footerText}>
-              Showing {projects.length} of{' '}
-              {projects.length} projects
-            </div>
-
-          </section>
-
-          {/* ------------------------------------------
-              Selected Project Details
-          ------------------------------------------ */}
-          {selectedProject && (
-            <section
-              style={styles.detailsCard}
-            >
-
-              <div style={styles.detailsHeader}>
-
-                <div>
-                  <h2
-                    style={styles.aiTitle}
-                  >
-                    Project Details
-                  </h2>
-
-                  <p
-                    style={
-                      styles.detailsSubtitle
-                    }
-                  >
-                    Complete information for the
-                    selected project.
-                  </p>
-                </div>
+                <p
+                  style={styles.emptyText}
+                >
+                  Submit your project idea to
+                  receive AI-powered project
+                  planning and mentorship.
+                </p>
 
                 <button
                   type="button"
-                  style={styles.closeButton}
+                  style={styles.emptyButton}
                   onClick={() =>
-                    setSelectedProject(null)
+                    setIsModalOpen(true)
                   }
                 >
-                  Close
+                  Submit Project Idea
                 </button>
 
               </div>
+            )}
 
-              {/* Project Information */}
-              <div style={styles.detailsGrid}>
+            {/* =================================================
+                PROJECT LIST
+            ================================================= */}
+            {projects.length > 0 && (
+              <div style={styles.projectList}>
 
-                <div style={styles.detailItem}>
+                {projects.map((project) => {
 
-                  <span
-                    style={
-                      styles.detailLabel
-                    }
-                  >
-                    Project Title
-                  </span>
+                  const badgeStyle =
+                    getBadgeStyle(
+                      project.status
+                    );
 
-                  <span
-                    style={
-                      styles.detailValue
-                    }
-                  >
-                    {selectedProject.title}
-                  </span>
+                  return (
+                    <div
+                      key={project.id}
+                      style={{
+                        ...styles.projectCard,
 
-                </div>
+                        ...(selectedProject?.id ===
+                        project.id
+                          ? styles.selectedProjectCard
+                          : {})
+                      }}
+                    >
 
-                <div style={styles.detailItem}>
+                      <div
+                        style={styles.projectInfo}
+                      >
 
-                  <span
-                    style={
-                      styles.detailLabel
-                    }
-                  >
-                    Domain
-                  </span>
+                        <div
+                          style={
+                            styles.projectTopRow
+                          }
+                        >
 
-                  <span
-                    style={
-                      styles.detailValue
-                    }
-                  >
-                    {selectedProject.domain ||
-                      'Not specified'}
-                  </span>
+                          <h3
+                            style={
+                              styles.projectTitle
+                            }
+                          >
+                            {project.title}
+                          </h3>
 
-                </div>
+                          <span
+                            style={{
+                              ...styles.statusBadge,
+                              ...badgeStyle
+                            }}
+                          >
+                            {project.status}
+                          </span>
 
-                <div
-                  style={
-                    styles.detailItemFull
-                  }
-                >
+                        </div>
 
-                  <span
-                    style={
-                      styles.detailLabel
-                    }
-                  >
-                    Description
-                  </span>
+                        <p
+                          style={
+                            styles.projectDescription
+                          }
+                        >
+                          {project.description}
+                        </p>
 
-                  <p
-                    style={
-                      styles.detailDescription
-                    }
-                  >
-                    {selectedProject.description ||
-                      'No description available.'}
-                  </p>
-
-                </div>
-
-                <div style={styles.detailItem}>
-
-                  <span
-                    style={
-                      styles.detailLabel
-                    }
-                  >
-                    Status
-                  </span>
-
-                  <span
-                    style={{
-                      ...styles.statusBadge,
-                      ...getBadgeStyle(
-                        selectedProject.status
-                      )
-                    }}
-                  >
-                    {selectedProject.status}
-                  </span>
-
-                </div>
-
-                <div style={styles.detailItem}>
-
-                  <span
-                    style={
-                      styles.detailLabel
-                    }
-                  >
-                    Submission Date
-                  </span>
-
-                  <span
-                    style={
-                      styles.detailValue
-                    }
-                  >
-                    {selectedProject.dateText}
-                  </span>
-
-                </div>
-
-              </div>
-
-              {/* ----------------------------------------
-                  AI Analysis
-              ---------------------------------------- */}
-              <div
-                style={
-                  styles.analysisSection
-                }
-              >
-
-                <h3
-                  style={
-                    styles.analysisHeading
-                  }
-                >
-                  AI Project Analysis
-                </h3>
-
-                {selectedProject.ai_analysis ? (
-
-                  <pre
-                    style={
-                      styles.aiResult
-                    }
-                  >
-                    {typeof selectedProject.ai_analysis ===
-                    'string'
-                      ? selectedProject.ai_analysis
-                      : JSON.stringify(
-                          selectedProject.ai_analysis,
-                          null,
-                          2
+                        {project.domain && (
+                          <p
+                            style={
+                              styles.projectDomain
+                            }
+                          >
+                            Domain:{' '}
+                            {project.domain}
+                          </p>
                         )}
-                  </pre>
 
-                ) : (
+                        <p
+                          style={
+                            styles.projectDate
+                          }
+                        >
+                          {project.dateText}
+                        </p>
 
-                  <div
-                    style={
-                      styles.noAnalysisBox
-                    }
-                  >
-                    AI analysis is not available
-                    for this project yet.
-                  </div>
+                      </div>
 
-                )}
+                      {/* View Analysis */}
+                      <button
+                        type="button"
+                        style={
+                          styles.arrowButton
+                        }
+                        onClick={() =>
+                          handleProjectOpen(
+                            project
+                          )
+                        }
+                        aria-label="View project analysis"
+                      >
+                        →
+                      </button>
+
+                    </div>
+                  );
+                })}
 
               </div>
+            )}
 
-            </section>
-          )}
+          </section>
 
         </main>
+
       </div>
 
-      {/* ------------------------------------------
-          Idea Submission Modal
-      ------------------------------------------ */}
+      {/* =====================================================
+          PROJECT SUBMISSION MODAL
+      ===================================================== */}
       <IdeaSubmissionModal
         isOpen={isModalOpen}
         onClose={() =>
@@ -828,79 +670,75 @@ const dashboard = () => {
         onSubmit={handleIdeaSubmit}
       />
 
+      {/* =====================================================
+          AI ANALYSIS MODAL
+      ===================================================== */}
+      <AIAnalysis
+        project={selectedProject}
+        onClose={handleProjectClose}
+      />
+
     </div>
   );
 };
 
+// =========================================================
+// STYLES
+// =========================================================
+
 const styles = {
-  layout: {
-  display: 'flex',
-  width: '100%',
-  minHeight: '100vh',
-  height: '100vh',
-  backgroundColor: '#f8fafc',
-  margin: 0,
-  padding: 0,
-  overflowY: 'auto',
-  overflowX: 'hidden'
-},
+
+  page: {
+    display: 'flex',
+    width: '100%',
+    minHeight: '100vh',
+    backgroundColor: '#f8fafc',
+    margin: 0,
+    padding: 0,
+    overflowX: 'hidden'
+  },
 
   mainContent: {
     flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
     minWidth: 0,
     minHeight: '100vh'
   },
 
-  pageBody: {
-    padding: '32px 40px',
-    flex: 1,
-    overflowY: 'visible'
+  content: {
+    padding: '32px 40px'
   },
 
-  bannerRow: {
+  pageHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '28px',
-    gap: '24px'
+    alignItems: 'center',
+    marginBottom: '32px',
+    gap: '20px'
   },
 
-  welcomeTitle: {
-    fontSize: '24px',
+  heading: {
+    margin: 0,
+    fontSize: '28px',
     fontWeight: '700',
-    color: '#0f172a',
-    margin: '0 0 6px 0'
+    color: '#0f172a'
   },
 
-  welcomeSubtitle: {
+  subHeading: {
+    margin: '8px 0 0',
     fontSize: '14px',
-    color: '#64748b',
-    margin: 0
+    color: '#64748b'
   },
 
-  submitButton: {
+  submitIdeaButton: {
+    padding: '11px 18px',
     backgroundColor: '#1d4ed8',
     color: '#ffffff',
     border: 'none',
-    padding: '10px 20px',
     borderRadius: '8px',
     fontSize: '14px',
-    fontWeight: '600',
+    fontWeight: '500',
     cursor: 'pointer',
     whiteSpace: 'nowrap'
-  },
-
-  closeButton: {
-    backgroundColor: '#f1f5f9',
-    color: '#475569',
-    border: '1px solid #cbd5e1',
-    padding: '8px 14px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer'
   },
 
   analysisBox: {
@@ -914,49 +752,38 @@ const styles = {
     fontWeight: '500'
   },
 
-  cardContainer: {
+  section: {
     backgroundColor: '#ffffff',
-    borderRadius: '12px',
     border: '1px solid #e2e8f0',
+    borderRadius: '12px',
     padding: '24px'
   },
 
-  containerHeader: {
-    marginBottom: '20px'
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '20px',
+    gap: '20px'
   },
 
-  containerTitle: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#0f172a',
-    margin: '0 0 4px 0'
+  sectionTitle: {
+    margin: 0,
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#0f172a'
   },
 
-  containerSubtitle: {
+  sectionSubtitle: {
+    margin: '6px 0 0',
+    fontSize: '13px',
+    color: '#64748b'
+  },
+
+  projectCount: {
     fontSize: '13px',
     color: '#64748b',
-    margin: 0
-  },
-
-  projectSelect: {
-    marginTop: '16px',
-    width: '100%',
-    maxWidth: '500px',
-    padding: '10px 12px',
-    borderRadius: '8px',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    fontSize: '14px',
-    cursor: 'pointer',
-    outline: 'none'
-  },
-
-  emptyMessage: {
-    padding: '40px 0',
-    textAlign: 'center',
-    color: '#94a3b8',
-    fontSize: '14px'
+    whiteSpace: 'nowrap'
   },
 
   projectList: {
@@ -965,186 +792,121 @@ const styles = {
     gap: '12px'
   },
 
-  projectRow: {
+  projectCard: {
     display: 'flex',
     alignItems: 'center',
-    padding: '16px 20px',
+    justifyContent: 'space-between',
+    gap: '20px',
+    padding: '18px',
+    border: '1px solid #e2e8f0',
     borderRadius: '10px',
-    border: '1px solid #f1f5f9',
-    backgroundColor: '#ffffff',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease'
+    backgroundColor: '#ffffff'
   },
 
-  selectedProjectRow: {
+  selectedProjectCard: {
     border: '1px solid #93c5fd',
     backgroundColor: '#eff6ff'
   },
 
   projectInfo: {
     flex: 1,
-    paddingRight: '20px',
     minWidth: 0
   },
 
-  projectTitle: {
-    fontSize: '15px',
-    fontWeight: '700',
-    color: '#0f172a',
-    margin: '0 0 4px 0'
-  },
-
-  projectDescription: {
-    fontSize: '13px',
-    color: '#64748b',
-    margin: 0,
-    lineHeight: '1.4'
-  },
-
-  projectDomain: {
-    fontSize: '12px',
-    color: '#64748b',
-    margin: '6px 0 0 0'
-  },
-
-  statusContainer: {
+  projectTopRow: {
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: '6px',
-    marginRight: '16px',
-    flexShrink: 0
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
+
+  projectTitle: {
+    margin: 0,
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#0f172a'
   },
 
   statusBadge: {
-    display: 'inline-block',
-    fontSize: '11px',
-    fontWeight: '600',
-    padding: '4px 10px',
-    borderRadius: '12px'
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 9px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: '500'
   },
 
-  dateText: {
+  projectDescription: {
+    margin: '8px 0 5px',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    color: '#475569',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden'
+  },
+
+  projectDomain: {
+    margin: '0 0 5px',
+    fontSize: '12px',
+    color: '#64748b'
+  },
+
+  projectDate: {
+    margin: 0,
     fontSize: '12px',
     color: '#94a3b8'
   },
 
-  arrowContainer: {
+  arrowButton: {
+    width: '38px',
+    height: '38px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    backgroundColor: '#f8fafc',
+    color: '#1d4ed8',
+    fontSize: '20px',
+    cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0
   },
 
-  footerText: {
+  emptyState: {
     textAlign: 'center',
-    fontSize: '12px',
-    color: '#94a3b8',
-    marginTop: '20px'
+    padding: '60px 20px',
+    border: '1px dashed #cbd5e1',
+    borderRadius: '10px',
+    backgroundColor: '#f8fafc'
   },
 
-  detailsCard: {
-    marginTop: '24px',
-    backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    border: '1px solid #e2e8f0',
-    padding: '24px'
-  },
-
-  detailsHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '24px',
-    gap: '20px'
-  },
-
-  detailsSubtitle: {
-    fontSize: '13px',
-    color: '#64748b',
-    margin: 0
-  },
-
-  detailsGrid: {
-    display: 'grid',
-    gridTemplateColumns:
-      'repeat(2, minmax(0, 1fr))',
-    gap: '18px',
-    marginBottom: '24px'
-  },
-
-  detailItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    padding: '14px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px'
-  },
-
-  detailItemFull: {
-    gridColumn: '1 / -1',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    padding: '14px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px'
-  },
-
-  detailLabel: {
-    fontSize: '12px',
+  emptyTitle: {
+    margin: '0 0 8px',
+    fontSize: '17px',
     fontWeight: '600',
+    color: '#334155'
+  },
+
+  emptyText: {
+    maxWidth: '480px',
+    margin: '0 auto 20px',
+    fontSize: '14px',
+    lineHeight: '1.6',
     color: '#64748b'
   },
 
-  detailValue: {
+  emptyButton: {
+    padding: '10px 16px',
+    backgroundColor: '#1d4ed8',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '7px',
     fontSize: '14px',
-    fontWeight: '600',
-    color: '#0f172a'
-  },
-
-  detailDescription: {
-    fontSize: '14px',
-    lineHeight: '1.6',
-    color: '#334155',
-    margin: 0
-  },
-
-  analysisSection: {
-    marginTop: '10px'
-  },
-
-  analysisHeading: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#0f172a',
-    margin: '0 0 12px 0'
-  },
-
-  noAnalysisBox: {
-    backgroundColor: '#fffbeb',
-    border: '1px solid #fde68a',
-    borderRadius: '8px',
-    padding: '14px',
-    color: '#92400e',
-    fontSize: '13px'
-  },
-
-  aiResult: {
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px',
-    padding: '16px',
-    fontSize: '13px',
-    lineHeight: '1.5',
-    color: '#334155',
-    overflowX: 'auto',
-    maxHeight: '600px',
-    overflowY: 'auto',
-    margin: 0
+    fontWeight: '500',
+    cursor: 'pointer'
   }
 };
 
-export default dashboard;
+export default Dashboard;
