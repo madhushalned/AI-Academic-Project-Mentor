@@ -4,12 +4,27 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
   const [title, setTitle] = useState("");
   const [domain, setDomain] = useState("");
   const [description, setDescription] = useState("");
-
+  const [problemStatement, setProblemStatement] = useState("");
+  const [expectedOutcome, setExpectedOutcome] = useState("");
   const [error, setError] = useState("");
 
   if (!isOpen) {
     return null;
   }
+
+  const resetForm = () => {
+    setTitle("");
+    setDomain("");
+    setDescription("");
+    setProblemStatement("");
+    setExpectedOutcome("");
+    setError("");
+  };
+
+  const handleModalClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,39 +44,56 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
       return;
     }
 
+    if (!problemStatement.trim()) {
+      setError("Problem statement is required.");
+      return;
+    }
+
+    if (!expectedOutcome.trim()) {
+      setError("Expected outcome is required.");
+      return;
+    }
+
     setError("");
 
-    // Send the complete project object to Dashboard
     onSubmit({
       title: title.trim(),
       description: description.trim(),
-      domain: domain.trim()
+      domain: domain.trim(),
+      problemStatement: problemStatement.trim(),
+      expectedOutcome: expectedOutcome.trim(),
     });
 
-    // Clear form
-    setTitle("");
-    setDomain("");
-    setDescription("");
-
+    resetForm();
     onClose();
   };
 
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
+        {/* Header */}
+        <div style={styles.header}>
+          <div>
+            <h2 style={styles.title}>Submit Project Idea</h2>
+            <p style={styles.subtitle}>
+              Provide details about your project so the AI mentor can analyze and guide you.
+            </p>
+          </div>
 
-        <h2 style={styles.title}>
-          Submit Project Idea
-        </h2>
+          <button
+            type="button"
+            onClick={handleModalClose}
+            style={styles.closeButton}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit}>
-
           {/* Project Title */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Project Title
-            </label>
-
+            <label style={styles.label}>Project Title</label>
             <input
               type="text"
               placeholder="Enter your project title"
@@ -73,10 +105,7 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
 
           {/* Domain */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Domain
-            </label>
-
+            <label style={styles.label}>Domain</label>
             <input
               type="text"
               placeholder="e.g. Artificial Intelligence"
@@ -88,12 +117,9 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
 
           {/* Description */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Project Description
-            </label>
-
+            <label style={styles.label}>Project Description</label>
             <textarea
-              rows="5"
+              rows="4"
               placeholder="Describe your project idea in 2-3 lines..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -101,33 +127,46 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
             />
           </div>
 
-          {/* Error */}
-          {error && (
-            <p style={styles.error}>
-              {error}
-            </p>
-          )}
+          {/* Problem Statement */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Problem Statement</label>
+            <textarea
+              rows="3"
+              placeholder="What problem does your project aim to solve?"
+              value={problemStatement}
+              onChange={(e) => setProblemStatement(e.target.value)}
+              style={styles.textarea}
+            />
+          </div>
 
-          {/* Buttons */}
+          {/* Expected Outcome */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Expected Outcome</label>
+            <textarea
+              rows="3"
+              placeholder="What do you expect your project to achieve?"
+              value={expectedOutcome}
+              onChange={(e) => setExpectedOutcome(e.target.value)}
+              style={styles.textarea}
+            />
+          </div>
+
+          {/* Error Display */}
+          {error && <p style={styles.error}>{error}</p>}
+
+          {/* Actions */}
           <div style={styles.actions}>
-
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleModalClose}
               style={styles.cancelBtn}
             >
               Cancel
             </button>
-
-            <button
-              type="submit"
-              style={styles.submitBtn}
-            >
+            <button type="submit" style={styles.submitBtn}>
               Submit Idea
             </button>
-
           </div>
-
         </form>
       </div>
     </div>
@@ -137,97 +176,123 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
 const styles = {
   overlay: {
     position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1000
+    zIndex: 2000,
+    padding: "20px",
   },
-
   modal: {
-    backgroundColor: "#ffffff",
-    padding: "24px",
-    borderRadius: "12px",
     width: "100%",
-    maxWidth: "480px",
-    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)"
+    maxWidth: "560px",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    backgroundColor: "#ffffff",
+    borderRadius: "14px",
+    padding: "24px",
+    boxSizing: "border-box",
+    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
   },
-
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "16px",
+    marginBottom: "24px",
+  },
   title: {
-    margin: "0 0 20px 0",
-    fontSize: "18px",
-    fontWeight: "600",
-    color: "#0f172a"
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: "700",
+    color: "#0f172a",
   },
-
+  subtitle: {
+    margin: "7px 0 0",
+    fontSize: "13px",
+    lineHeight: "1.5",
+    color: "#64748b",
+  },
+  closeButton: {
+    width: "32px",
+    height: "32px",
+    flexShrink: 0,
+    border: "none",
+    borderRadius: "6px",
+    backgroundColor: "#f1f5f9",
+    color: "#475569",
+    fontSize: "22px",
+    lineHeight: "1",
+    cursor: "pointer",
+  },
   formGroup: {
-    marginBottom: "16px"
+    marginBottom: "18px",
   },
-
   label: {
     display: "block",
-    marginBottom: "6px",
+    marginBottom: "7px",
     fontSize: "14px",
-    fontWeight: "500",
-    color: "#334155"
+    fontWeight: "600",
+    color: "#334155",
   },
-
   input: {
     width: "100%",
-    padding: "12px",
-    borderRadius: "8px",
+    padding: "11px 12px",
     border: "1px solid #cbd5e1",
-    fontSize: "14px",
+    borderRadius: "8px",
+    outline: "none",
     boxSizing: "border-box",
-    fontFamily: "inherit"
+    fontSize: "14px",
+    fontFamily: "inherit",
+    color: "#0f172a",
   },
-
   textarea: {
     width: "100%",
-    padding: "12px",
-    borderRadius: "8px",
+    padding: "11px 12px",
     border: "1px solid #cbd5e1",
-    fontSize: "14px",
+    borderRadius: "8px",
+    outline: "none",
     boxSizing: "border-box",
+    fontSize: "14px",
     fontFamily: "inherit",
-    resize: "vertical"
+    color: "#0f172a",
+    resize: "vertical",
+    lineHeight: "1.5",
   },
-
   error: {
     color: "#dc2626",
     fontSize: "13px",
-    margin: "0 0 12px 0"
+    margin: "0 0 12px 0",
   },
-
   actions: {
     display: "flex",
     justifyContent: "flex-end",
-    gap: "12px",
-    marginTop: "16px"
+    gap: "10px",
+    marginTop: "24px",
+    paddingTop: "18px",
+    borderTop: "1px solid #e2e8f0",
   },
-
   cancelBtn: {
-    padding: "8px 16px",
-    backgroundColor: "transparent",
+    padding: "10px 17px",
+    backgroundColor: "#ffffff",
     border: "1px solid #cbd5e1",
-    borderRadius: "6px",
+    borderRadius: "7px",
+    color: "#475569",
+    fontSize: "14px",
+    fontWeight: "500",
     cursor: "pointer",
-    color: "#475569"
   },
-
   submitBtn: {
-    padding: "8px 16px",
+    padding: "10px 18px",
     backgroundColor: "#1d4ed8",
-    color: "#ffffff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "7px",
+    color: "#ffffff",
+    fontSize: "14px",
+    fontWeight: "500",
     cursor: "pointer",
-    fontWeight: "500"
-  }
+  },
 };
 
 export default IdeaSubmission;
