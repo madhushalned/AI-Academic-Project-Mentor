@@ -1,12 +1,24 @@
 import Sidebar from "./Sidebar.jsx";
 import Topbar from "./Topbar.jsx";
 
-export default function DashboardLayout({ currentPage, onNavigate, title, subtitle, children }) {
+export default function DashboardLayout({
+  currentPage,
+  onNavigate,
+  title,
+  subtitle,
+  children,
+}) {
   return (
     <div className="layout">
       <Sidebar currentPage={currentPage} onNavigate={onNavigate} />
+
       <div className="layout-main">
-        <Topbar title={title} subtitle={subtitle} />
+        <Topbar
+          title={title}
+          subtitle={subtitle}
+          onNavigate={onNavigate}
+        />
+
         <main className="layout-content">{children}</main>
       </div>
     </div>

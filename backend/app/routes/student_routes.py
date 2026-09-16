@@ -2,11 +2,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.services.student_service import login_student
 
-from app.schemas.student_schema import StudentCreate
+from app.schemas.student_schema import StudentCreate, StudentUpdate
 from app.services.student_service import (
     create_student,
     get_students,
-    get_student_by_id
+    get_student_by_id,
+    update_student
 )
 
 router = APIRouter(
@@ -50,6 +51,30 @@ def get_all_students():
 
     return students
 
+@router.put("/{student_id}")
+def update_existing_student(
+    student_id: str,
+    student: StudentUpdate
+):
+    """
+    Update an existing student's profile.
+    """
+
+    result = update_student(
+        student_id,
+        student
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
+        )
+
+    if "_id" in result:
+        result["_id"] = str(result["_id"])
+
+    return result
 
 @router.get("/{student_id}")
 def get_single_student(student_id: str):
