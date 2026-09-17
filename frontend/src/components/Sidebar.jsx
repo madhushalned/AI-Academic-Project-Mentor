@@ -2,6 +2,7 @@ import Icon from "./Icon.jsx";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { id: "student-profile", label: "Student Profile", icon: "mentor" },
   { id: "skill-assessment", label: "Skill Assessment", icon: "skill" },
   { id: "project", label: "Project", icon: "project", placeholder: true },
   { id: "milestones", label: "Milestones", icon: "milestone" },
