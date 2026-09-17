@@ -1,0 +1,19 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+html {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}

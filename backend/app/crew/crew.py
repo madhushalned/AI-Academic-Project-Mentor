@@ -47,7 +47,6 @@ project_planning_crew = Crew(
     verbose=True
 )
 
-
 progress_evaluation_crew = Crew(
     agents=[
         progress_mentor_agent
@@ -56,5 +55,6 @@ progress_evaluation_crew = Crew(
         progress_evaluation_task
     ],
     process=Process.sequential,
+    llm=llm,
     verbose=True
 )

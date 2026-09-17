@@ -7,6 +7,8 @@ class ProjectCreate(BaseModel):
     title: str
     description: Optional[str] = None
     domain: Optional[str] = None
+    problemStatement: Optional[str] = None
+    expectedOutcome: Optional[str] = None
     status: str = "not_started"
 
 class ProgressUpdate(BaseModel):

@@ -5,33 +5,18 @@ const AIAnalysis = ({ project, onClose }) => {
     return null;
   }
 
-  /*
-    AI analysis will  come from the backend.
+  const analysis = project.ai_analysis;
 
-    Expected structure can be something like:
-
-    project.aiAnalysis = {
-      scope: ...,
-      feasibility: ...,
-      technologies: [...],
-      technologyReasoning: [...],
-      milestones: [...],
-      risks: [...]
-    }
-
-   
-  */
-
-  const analysis =project.ai_analysis;
+  const scope = analysis?.scope || {};
+  const feasibility = analysis?.feasibility || {};
+  const technology = analysis?.technology || {};
 
   return (
     <div style={styles.overlay}>
-
       <div style={styles.modal}>
 
         {/* Header */}
         <div style={styles.header}>
-
           <div>
             <h2 style={styles.title}>
               AI Project Analysis
@@ -48,12 +33,10 @@ const AIAnalysis = ({ project, onClose }) => {
           >
             ×
           </button>
-
         </div>
 
         {/* Project Information */}
         <section style={styles.projectInfoSection}>
-
           <h3 style={styles.sectionTitle}>
             Project Information
           </h3>
@@ -64,7 +47,7 @@ const AIAnalysis = ({ project, onClose }) => {
             </span>
 
             <p style={styles.infoText}>
-              {project.description}
+              {project.description || 'Not provided'}
             </p>
           </div>
 
@@ -74,7 +57,7 @@ const AIAnalysis = ({ project, onClose }) => {
             </span>
 
             <p style={styles.infoText}>
-              {project.problemStatement}
+              {project.problemStatement || 'Not provided'}
             </p>
           </div>
 
@@ -84,16 +67,14 @@ const AIAnalysis = ({ project, onClose }) => {
             </span>
 
             <p style={styles.infoText}>
-              {project.expectedOutcome}
+              {project.expectedOutcome || 'Not provided'}
             </p>
           </div>
-
         </section>
 
-        {/* No AI Analysis Yet */}
+        {/* No AI Analysis */}
         {!analysis && (
           <div style={styles.emptyAnalysis}>
-
             <div style={styles.loadingIcon}>
               AI
             </div>
@@ -107,7 +88,6 @@ const AIAnalysis = ({ project, onClose }) => {
               received yet. Once the backend completes the
               analysis, the results will appear here.
             </p>
-
           </div>
         )}
 
@@ -115,141 +95,322 @@ const AIAnalysis = ({ project, onClose }) => {
         {analysis && (
           <div style={styles.analysisContainer}>
 
-            {/* Project Scope */}
+            {/* Project Analysis */}
             <section style={styles.analysisSection}>
-
               <h3 style={styles.sectionTitle}>
-                1. Project Scope
+                1. Project Analysis
               </h3>
 
               <div style={styles.resultBox}>
-                {analysis.scope}
+                <p style={styles.resultText}>
+                  {analysis.project_analysis || 'Not available'}
+                </p>
               </div>
+            </section>
 
+            {/* Project Scope */}
+            <section style={styles.analysisSection}>
+              <h3 style={styles.sectionTitle}>
+                2. Project Scope
+              </h3>
+
+              <div style={styles.resultBox}>
+
+                {scope.problem_statement && (
+                  <div style={styles.detailItem}>
+                    <strong>Problem Statement:</strong>
+                    <p>{scope.problem_statement}</p>
+                  </div>
+                )}
+
+                {scope.objectives?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>Objectives:</strong>
+                    <ul>
+                      {scope.objectives.map((objective, index) => (
+                        <li key={index}>
+                          {objective}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {scope.in_scope?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>In Scope:</strong>
+                    <ul>
+                      {scope.in_scope.map((item, index) => (
+                        <li key={index}>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {scope.out_of_scope?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>Out of Scope:</strong>
+                    <ul>
+                      {scope.out_of_scope.map((item, index) => (
+                        <li key={index}>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {scope.expected_outcomes?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>Expected Outcomes:</strong>
+                    <ul>
+                      {scope.expected_outcomes.map((item, index) => (
+                        <li key={index}>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {!scope.problem_statement &&
+                  !scope.objectives?.length &&
+                  !scope.in_scope?.length &&
+                  !scope.out_of_scope?.length &&
+                  !scope.expected_outcomes?.length && (
+                    <p style={styles.resultText}>
+                      Scope information is not available.
+                    </p>
+                  )}
+              </div>
             </section>
 
             {/* Feasibility */}
             <section style={styles.analysisSection}>
-
               <h3 style={styles.sectionTitle}>
-                2. Feasibility
+                3. Feasibility Analysis
               </h3>
 
               <div style={styles.resultBox}>
 
-                {typeof analysis.feasibility === 'object' ? (
-                  <>
-                    {analysis.feasibility.status && (
-                      <p>
-                        <strong>Status:</strong>{' '}
-                        {analysis.feasibility.status}
-                      </p>
-                    )}
-
-                    {analysis.feasibility.level && (
-                      <p>
-                        <strong>Level:</strong>{' '}
-                        {analysis.feasibility.level}
-                      </p>
-                    )}
-
-                    {analysis.feasibility.explanation && (
-                      <p>
-                        {analysis.feasibility.explanation}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  analysis.feasibility
-                )}
-
-              </div>
-
-            </section>
-
-            {/* Technologies */}
-            <section style={styles.analysisSection}>
-
-              <h3 style={styles.sectionTitle}>
-                3. Technology Recommendations
-              </h3>
-
-              <div style={styles.technologyList}>
-
-                {analysis.technologies?.map(
-                  (technology, index) => (
-                    <div
-                      key={index}
-                      style={styles.technologyCard}
-                    >
-
-                      <h4 style={styles.technologyName}>
-                        {technology.name}
-                      </h4>
-
-                      {technology.purpose && (
-                        <p style={styles.resultText}>
-                          <strong>Purpose:</strong>{' '}
-                          {technology.purpose}
-                        </p>
-                      )}
-
-                    </div>
-                  )
-                )}
-
-              </div>
-
-            </section>
-
-            {/* Technology Reasoning */}
-            <section style={styles.analysisSection}>
-
-              <h3 style={styles.sectionTitle}>
-                4. Technology Reasoning
-              </h3>
-
-              <div style={styles.resultBox}>
-
-                {analysis.technologyReasoning?.map(
-                  (reason, index) => (
-                    <p key={index}>
-                      {typeof reason === 'string'
-                        ? reason
-                        : reason.reasoning}
+                {feasibility.score !== undefined &&
+                  feasibility.score !== null && (
+                    <p style={styles.resultText}>
+                      <strong>Score:</strong>{' '}
+                      {feasibility.score}/100
                     </p>
-                  )
+                  )}
+
+                {feasibility.decision && (
+                  <p style={styles.resultText}>
+                    <strong>Decision:</strong>{' '}
+                    {feasibility.decision}
+                  </p>
                 )}
 
-              </div>
+                {feasibility.technical_feasibility && (
+                  <p style={styles.resultText}>
+                    <strong>Technical:</strong>{' '}
+                    {feasibility.technical_feasibility}
+                  </p>
+                )}
 
+                {feasibility.time_feasibility && (
+                  <p style={styles.resultText}>
+                    <strong>Time:</strong>{' '}
+                    {feasibility.time_feasibility}
+                  </p>
+                )}
+
+                {feasibility.resource_feasibility && (
+                  <p style={styles.resultText}>
+                    <strong>Resources:</strong>{' '}
+                    {feasibility.resource_feasibility}
+                  </p>
+                )}
+
+                {feasibility.skills_required?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>Skills Required:</strong>
+                    <ul>
+                      {feasibility.skills_required.map(
+                        (skill, index) => (
+                          <li key={index}>
+                            {skill}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {feasibility.limitations?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>Limitations:</strong>
+                    <ul>
+                      {feasibility.limitations.map(
+                        (limitation, index) => (
+                          <li key={index}>
+                            {limitation}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {!Object.keys(feasibility).length && (
+                  <p style={styles.resultText}>
+                    Feasibility information is not available.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            {/* Technology */}
+            <section style={styles.analysisSection}>
+              <h3 style={styles.sectionTitle}>
+                4. Technology Recommendations
+              </h3>
+
+              <div style={styles.resultBox}>
+
+                {technology.programming_language && (
+                  <p style={styles.resultText}>
+                    <strong>Programming Language:</strong>{' '}
+                    {technology.programming_language}
+                  </p>
+                )}
+
+                {technology.framework && (
+                  <p style={styles.resultText}>
+                    <strong>Framework:</strong>{' '}
+                    {technology.framework}
+                  </p>
+                )}
+
+                {technology.database && (
+                  <p style={styles.resultText}>
+                    <strong>Database:</strong>{' '}
+                    {technology.database}
+                  </p>
+                )}
+
+                {technology.ai_ml_tools?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>AI/ML Tools:</strong>
+                    <ul>
+                      {technology.ai_ml_tools.map(
+                        (tool, index) => (
+                          <li key={index}>
+                            {tool}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {technology.libraries?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>Libraries:</strong>
+                    <ul>
+                      {technology.libraries.map(
+                        (library, index) => (
+                          <li key={index}>
+                            {library}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {technology.apis?.length > 0 && (
+                  <div style={styles.detailItem}>
+                    <strong>External APIs:</strong>
+                    <ul>
+                      {technology.apis.map(
+                        (api, index) => (
+                          <li key={index}>
+                            {api}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {technology.reasoning && (
+                  <div style={styles.detailItem}>
+                    <strong>Reasoning:</strong>
+                    <p>{technology.reasoning}</p>
+                  </div>
+                )}
+
+                {!Object.keys(technology).length && (
+                  <p style={styles.resultText}>
+                    Technology recommendations are not available.
+                  </p>
+                )}
+              </div>
             </section>
 
             {/* Milestones */}
             <section style={styles.analysisSection}>
-
               <h3 style={styles.sectionTitle}>
                 5. Milestone Plan
               </h3>
 
               <div style={styles.milestoneList}>
-
-                {analysis.milestones?.map(
-                  (milestone, index) => (
+                {analysis.milestones?.length > 0 ? (
+                  analysis.milestones.map((milestone, index) => (
                     <div
                       key={index}
                       style={styles.milestoneCard}
                     >
-
                       <div style={styles.week}>
-                        {milestone.week ||
-                          `Week ${index + 1}`}
+                        Week {milestone.week || index + 1}
                       </div>
 
-                      <div>
+                      <div style={styles.milestoneContent}>
                         <h4 style={styles.milestoneTitle}>
-                          {milestone.title}
+                          {milestone.title || 'Milestone'}
                         </h4>
+
+                        {milestone.tasks?.length > 0 && (
+                          <div>
+                            <strong>Tasks:</strong>
+                            <ul>
+                              {milestone.tasks.map(
+                                (task, taskIndex) => (
+                                  <li key={taskIndex}>
+                                    {typeof task === 'string'
+                                      ? task
+                                      : task.title || task.task}
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                          </div>
+                        )}
+
+                        {milestone.deliverables?.length > 0 && (
+                          <div>
+                            <strong>Deliverables:</strong>
+                            <ul>
+                              {milestone.deliverables.map(
+                                (deliverable, deliverableIndex) => (
+                                  <li key={deliverableIndex}>
+                                    {deliverable}
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                          </div>
+                        )}
 
                         {milestone.description && (
                           <p style={styles.resultText}>
@@ -257,34 +418,41 @@ const AIAnalysis = ({ project, onClose }) => {
                           </p>
                         )}
                       </div>
-
                     </div>
-                  )
+                  ))
+                ) : (
+                  <div style={styles.resultBox}>
+                    <p style={styles.resultText}>
+                      No milestones available.
+                    </p>
+                  </div>
                 )}
-
               </div>
-
             </section>
 
             {/* Risks */}
             <section style={styles.analysisSection}>
-
               <h3 style={styles.sectionTitle}>
                 6. Risks & Mitigation
               </h3>
 
               <div style={styles.riskList}>
-
-                {analysis.risks?.map(
-                  (risk, index) => (
+                {analysis.risks?.length > 0 ? (
+                  analysis.risks.map((risk, index) => (
                     <div
                       key={index}
                       style={styles.riskCard}
                     >
-
                       <h4 style={styles.riskTitle}>
-                        {risk.title || risk.risk}
+                        {risk.title || risk.risk || `Risk ${index + 1}`}
                       </h4>
+
+                      {risk.description && (
+                        <p style={styles.resultText}>
+                          <strong>Description:</strong>{' '}
+                          {risk.description}
+                        </p>
+                      )}
 
                       {risk.impact && (
                         <p style={styles.resultText}>
@@ -299,13 +467,16 @@ const AIAnalysis = ({ project, onClose }) => {
                           {risk.mitigation}
                         </p>
                       )}
-
                     </div>
-                  )
+                  ))
+                ) : (
+                  <div style={styles.resultBox}>
+                    <p style={styles.resultText}>
+                      No risks available.
+                    </p>
+                  </div>
                 )}
-
               </div>
-
             </section>
 
           </div>
@@ -313,18 +484,15 @@ const AIAnalysis = ({ project, onClose }) => {
 
         {/* Footer */}
         <div style={styles.footer}>
-
           <button
             onClick={onClose}
             style={styles.closeFooterButton}
           >
             Close
           </button>
-
         </div>
 
       </div>
-
     </div>
   );
 };
@@ -435,6 +603,17 @@ const styles = {
     color: '#334155'
   },
 
+  resultText: {
+    margin: '6px 0',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    color: '#475569'
+  },
+
+  detailItem: {
+    marginBottom: '14px'
+  },
+
   technologyList: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -454,13 +633,6 @@ const styles = {
     color: '#1d4ed8'
   },
 
-  resultText: {
-    margin: '6px 0',
-    fontSize: '14px',
-    lineHeight: '1.5',
-    color: '#475569'
-  },
-
   milestoneList: {
     display: 'flex',
     flexDirection: 'column',
@@ -473,6 +645,10 @@ const styles = {
     padding: '16px',
     border: '1px solid #e2e8f0',
     borderRadius: '8px'
+  },
+
+  milestoneContent: {
+    flex: 1
   },
 
   week: {
