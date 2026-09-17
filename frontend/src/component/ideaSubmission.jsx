@@ -4,7 +4,6 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
   const [title, setTitle] = useState("");
   const [domain, setDomain] = useState("");
   const [description, setDescription] = useState("");
-  const [problemStatement, setProblemStatement] = useState("");
   const [expectedOutcome, setExpectedOutcome] = useState("");
   const [error, setError] = useState("");
 
@@ -16,7 +15,6 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
     setTitle("");
     setDomain("");
     setDescription("");
-    setProblemStatement("");
     setExpectedOutcome("");
     setError("");
   };
@@ -26,8 +24,12 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
     onClose();
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // -----------------------------
+    // Validation
+    // -----------------------------
 
     if (!title.trim()) {
       setError("Project title is required.");
@@ -40,12 +42,7 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
     }
 
     if (!description.trim()) {
-      setError("Project description is required.");
-      return;
-    }
-
-    if (!problemStatement.trim()) {
-      setError("Problem statement is required.");
+      setError("Project description / problem statement is required.");
       return;
     }
 
@@ -56,27 +53,42 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
 
     setError("");
 
-    onSubmit({
-      title: title.trim(),
-      description: description.trim(),
-      domain: domain.trim(),
-      problemStatement: problemStatement.trim(),
-      expectedOutcome: expectedOutcome.trim(),
-    });
+    // -----------------------------
+    // Submit project
+    // -----------------------------
 
-    resetForm();
-    onClose();
+    try {
+      await onSubmit({
+        title: title.trim(),
+        description: description.trim(),
+        domain: domain.trim(),
+        expectedOutcome: expectedOutcome.trim(),
+      });
+
+      // Reset only after successful submission
+      resetForm();
+      onClose();
+    } catch (err) {
+      console.error("Project submission failed:", err);
+      setError(
+        err?.message ||
+          "Project submission failed. Please try again."
+      );
+    }
   };
 
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
+
         {/* Header */}
         <div style={styles.header}>
           <div>
             <h2 style={styles.title}>Submit Project Idea</h2>
+
             <p style={styles.subtitle}>
-              Provide details about your project so the AI mentor can analyze and guide you.
+              Provide your project details so the AI mentor can
+              analyze and guide your project.
             </p>
           </div>
 
@@ -91,9 +103,13 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
         </div>
 
         <form onSubmit={handleSubmit}>
+
           {/* Project Title */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Project Title</label>
+            <label style={styles.label}>
+              Project Title
+            </label>
+
             <input
               type="text"
               placeholder="Enter your project title"
@@ -105,7 +121,10 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
 
           {/* Domain */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Domain</label>
+            <label style={styles.label}>
+              Domain
+            </label>
+
             <input
               type="text"
               placeholder="e.g. Artificial Intelligence"
@@ -115,33 +134,32 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
             />
           </div>
 
-          {/* Description */}
+          {/* Combined Description / Problem Statement */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Project Description</label>
+            <label style={styles.label}>
+              Project Description / Problem Statement
+            </label>
+
             <textarea
-              rows="4"
-              placeholder="Describe your project idea in 2-3 lines..."
+              rows="5"
+              placeholder="Describe your project idea, the problem it solves, and why the project is needed..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               style={styles.textarea}
             />
-          </div>
 
-          {/* Problem Statement */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Problem Statement</label>
-            <textarea
-              rows="3"
-              placeholder="What problem does your project aim to solve?"
-              value={problemStatement}
-              onChange={(e) => setProblemStatement(e.target.value)}
-              style={styles.textarea}
-            />
+            <p style={styles.helperText}>
+              Explain the project idea, the problem you want to solve,
+              and the purpose of the project.
+            </p>
           </div>
 
           {/* Expected Outcome */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Expected Outcome</label>
+            <label style={styles.label}>
+              Expected Outcome
+            </label>
+
             <textarea
               rows="3"
               placeholder="What do you expect your project to achieve?"
@@ -151,11 +169,16 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
             />
           </div>
 
-          {/* Error Display */}
-          {error && <p style={styles.error}>{error}</p>}
+          {/* Error */}
+          {error && (
+            <p style={styles.error}>
+              {error}
+            </p>
+          )}
 
           {/* Actions */}
           <div style={styles.actions}>
+
             <button
               type="button"
               onClick={handleModalClose}
@@ -163,9 +186,14 @@ const IdeaSubmission = ({ isOpen, onClose, onSubmit }) => {
             >
               Cancel
             </button>
-            <button type="submit" style={styles.submitBtn}>
+
+            <button
+              type="submit"
+              style={styles.submitBtn}
+            >
               Submit Idea
             </button>
+
           </div>
         </form>
       </div>
@@ -184,6 +212,7 @@ const styles = {
     zIndex: 2000,
     padding: "20px",
   },
+
   modal: {
     width: "100%",
     maxWidth: "560px",
@@ -195,6 +224,7 @@ const styles = {
     boxSizing: "border-box",
     boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
   },
+
   header: {
     display: "flex",
     justifyContent: "space-between",
@@ -202,18 +232,21 @@ const styles = {
     gap: "16px",
     marginBottom: "24px",
   },
+
   title: {
     margin: 0,
     fontSize: "21px",
     fontWeight: "700",
     color: "#0f172a",
   },
+
   subtitle: {
     margin: "7px 0 0",
     fontSize: "13px",
     lineHeight: "1.5",
     color: "#64748b",
   },
+
   closeButton: {
     width: "32px",
     height: "32px",
@@ -226,9 +259,11 @@ const styles = {
     lineHeight: "1",
     cursor: "pointer",
   },
+
   formGroup: {
     marginBottom: "18px",
   },
+
   label: {
     display: "block",
     marginBottom: "7px",
@@ -236,6 +271,7 @@ const styles = {
     fontWeight: "600",
     color: "#334155",
   },
+
   input: {
     width: "100%",
     padding: "11px 12px",
@@ -247,6 +283,7 @@ const styles = {
     fontFamily: "inherit",
     color: "#0f172a",
   },
+
   textarea: {
     width: "100%",
     padding: "11px 12px",
@@ -260,11 +297,20 @@ const styles = {
     resize: "vertical",
     lineHeight: "1.5",
   },
+
+  helperText: {
+    margin: "6px 0 0",
+    fontSize: "12px",
+    lineHeight: "1.4",
+    color: "#64748b",
+  },
+
   error: {
     color: "#dc2626",
     fontSize: "13px",
     margin: "0 0 12px 0",
   },
+
   actions: {
     display: "flex",
     justifyContent: "flex-end",
@@ -273,6 +319,7 @@ const styles = {
     paddingTop: "18px",
     borderTop: "1px solid #e2e8f0",
   },
+
   cancelBtn: {
     padding: "10px 17px",
     backgroundColor: "#ffffff",
@@ -283,6 +330,7 @@ const styles = {
     fontWeight: "500",
     cursor: "pointer",
   },
+
   submitBtn: {
     padding: "10px 18px",
     backgroundColor: "#1d4ed8",
@@ -296,3 +344,4 @@ const styles = {
 };
 
 export default IdeaSubmission;
+

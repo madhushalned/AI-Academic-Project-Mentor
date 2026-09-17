@@ -109,11 +109,6 @@ const Dashboard = () => {
             domain:
               project.domain || '',
 
-            problemStatement:
-              project.problemStatement ||
-              project.problem_statement ||
-              '',
-
             expectedOutcome:
               project.expectedOutcome ||
               project.expected_outcome ||
@@ -132,6 +127,10 @@ const Dashboard = () => {
               Array.isArray(project.progress)
                 ? project.progress
                 : [],
+
+            progress_evaluation:
+              project.progress_evaluation ||
+              null,
 
             dateText: project.created_at
               ? `Submitted on ${new Date(
@@ -192,8 +191,9 @@ const Dashboard = () => {
       );
 
       if (!student) {
-        alert('Please log in again.');
-        return;
+        throw new Error(
+          'Please log in again.'
+        );
       }
 
       // -------------------------------------------------
@@ -209,9 +209,6 @@ const Dashboard = () => {
       const domain =
         formData.domain?.trim() || '';
 
-      const problemStatement =
-        formData.problemStatement?.trim() || '';
-
       const expectedOutcome =
         formData.expectedOutcome?.trim() || '';
 
@@ -219,21 +216,45 @@ const Dashboard = () => {
       // 3. Validate required fields
       // -------------------------------------------------
 
-      if (!title || !description) {
-        alert(
-          'Please enter the project title and description.'
+      if (!title) {
+        throw new Error(
+          'Project title is required.'
         );
-        return;
+      }
+
+      if (!domain) {
+        throw new Error(
+          'Project domain is required.'
+        );
+      }
+
+      if (!description) {
+        throw new Error(
+          'Project description / problem statement is required.'
+        );
+      }
+
+      if (!expectedOutcome) {
+        throw new Error(
+          'Expected outcome is required.'
+        );
       }
 
       // -------------------------------------------------
       // 4. Create project ID
       // -------------------------------------------------
 
-      const projectId = `proj-${Date.now()}`;
+      const projectId =
+        `proj-${Date.now()}`;
 
       // -------------------------------------------------
       // 5. Prepare project data
+      // -------------------------------------------------
+      //
+      // Description now contains both:
+      // Project Description + Problem Statement
+      //
+      // No separate problemStatement field is sent.
       // -------------------------------------------------
 
       const projectData = {
@@ -247,8 +268,6 @@ const Dashboard = () => {
         description,
 
         domain,
-
-        problemStatement,
 
         expectedOutcome,
 
@@ -289,18 +308,17 @@ const Dashboard = () => {
           projectResult
         );
 
-        alert(
+        const message =
           typeof projectResult.detail ===
-            'string'
+          'string'
             ? projectResult.detail
             : JSON.stringify(
                 projectResult.detail,
                 null,
                 2
-              )
-        );
+              );
 
-        return;
+        throw new Error(message);
       }
 
       console.log(
@@ -309,7 +327,21 @@ const Dashboard = () => {
       );
 
       // -------------------------------------------------
-      // 7. Create frontend project object
+      // 7. Get actual project ID from backend
+      // -------------------------------------------------
+
+      const createdProjectId =
+        projectResult.project_id ||
+        projectResult.id ||
+        projectId;
+
+      console.log(
+        'CREATED PROJECT ID:',
+        createdProjectId
+      );
+
+      // -------------------------------------------------
+      // 8. Create temporary frontend project
       // -------------------------------------------------
 
       const today =
@@ -323,9 +355,10 @@ const Dashboard = () => {
         );
 
       const newProject = {
-        id: projectId,
+        id: createdProjectId,
 
-        project_id: projectId,
+        project_id:
+          createdProjectId,
 
         student_id:
           student.student_id,
@@ -336,8 +369,6 @@ const Dashboard = () => {
 
         domain,
 
-        problemStatement,
-
         expectedOutcome,
 
         status: 'Under Analysis',
@@ -346,12 +377,14 @@ const Dashboard = () => {
 
         progress: [],
 
+        progress_evaluation: null,
+
         dateText:
           `Submitted on ${today}`
       };
 
       // -------------------------------------------------
-      // 8. Add project to UI
+      // 9. Immediately show project on dashboard
       // -------------------------------------------------
 
       setProjects(
@@ -370,18 +403,18 @@ const Dashboard = () => {
       setIsModalOpen(false);
 
       // -------------------------------------------------
-      // 9. Start AI analysis
+      // 10. START AI ANALYSIS AUTOMATICALLY
       // -------------------------------------------------
 
       setIsAnalyzing(true);
 
       console.log(
-        'STARTING AI ANALYSIS:',
-        projectId
+        'STARTING AUTOMATIC AI ANALYSIS:',
+        createdProjectId
       );
 
       const aiResponse = await fetch(
-        `${API_BASE_URL}/projects/${projectId}/analyze`,
+        `${API_BASE_URL}/projects/${createdProjectId}/analyze`,
         {
           method: 'POST',
 
@@ -395,89 +428,192 @@ const Dashboard = () => {
       const aiData =
         await aiResponse.json();
 
+      console.log(
+        'AI ANALYSIS RESPONSE:',
+        aiData
+      );
+
       if (!aiResponse.ok) {
         console.error(
           'AI API ERROR:',
           aiData
         );
 
-        alert(
+        const message =
           typeof aiData.detail ===
-            'string'
+          'string'
             ? aiData.detail
             : JSON.stringify(
                 aiData.detail,
                 null,
                 2
-              )
+              );
+
+        throw new Error(
+          `AI analysis failed: ${message}`
         );
-
-        setIsAnalyzing(false);
-
-        return;
       }
 
-      console.log(
-        'AI ANALYSIS RESULT:',
-        aiData
-      );
-
       // -------------------------------------------------
-      // 10. Get analysis result
+      // 11. Extract AI analysis
       // -------------------------------------------------
 
       const analysis =
-        aiData.analysis || aiData;
+        aiData.analysis ||
+        aiData.ai_analysis ||
+        aiData;
 
-      // -------------------------------------------------
-      // 11. Update AI analysis project
-      // -------------------------------------------------
-
-      setSelectedAnalysisProject(
-        (previousProject) => {
-          if (!previousProject) {
-            return previousProject;
-          }
-
-          return {
-            ...previousProject,
-
-            status:
-              'Analysis Completed',
-
-            ai_analysis:
-              analysis
-          };
-        }
+      console.log(
+        'AI ANALYSIS RESULT:',
+        analysis
       );
 
       // -------------------------------------------------
-      // 12. Update project list
+      // 12. Immediately update dashboard
       // -------------------------------------------------
+
+      const completedProject = {
+        ...newProject,
+
+        status:
+          'Analysis Completed',
+
+        ai_analysis:
+          analysis
+      };
+
+      setSelectedAnalysisProject(
+        completedProject
+      );
 
       setProjects(
         (previousProjects) =>
           previousProjects.map(
             (project) =>
-              project.id === projectId
-                ? {
-                    ...project,
-
-                    status:
-                      'Analysis Completed',
-
-                    ai_analysis:
-                      analysis
-                  }
+              project.project_id ===
+              createdProjectId
+                ? completedProject
                 : project
           )
       );
 
+      // -------------------------------------------------
+      // 13. Reload project from backend
+      // -------------------------------------------------
+      //
+      // This verifies that MongoDB actually contains:
+      // - status
+      // - ai_analysis
+      // -------------------------------------------------
+
+      try {
+        const latestResponse =
+          await fetch(
+            `${API_BASE_URL}/projects/${createdProjectId}`
+          );
+
+        const latestProject =
+          await latestResponse.json();
+
+        if (latestResponse.ok) {
+          console.log(
+            'LATEST PROJECT FROM BACKEND:',
+            latestProject
+          );
+
+          const backendProject = {
+            ...completedProject,
+
+            id:
+              latestProject.project_id ||
+              createdProjectId,
+
+            project_id:
+              latestProject.project_id ||
+              createdProjectId,
+
+            student_id:
+              latestProject.student_id ||
+              student.student_id,
+
+            title:
+              latestProject.title ||
+              title,
+
+            description:
+              latestProject.description ||
+              description,
+
+            domain:
+              latestProject.domain ||
+              domain,
+
+            expectedOutcome:
+              latestProject.expectedOutcome ||
+              latestProject.expected_outcome ||
+              expectedOutcome,
+
+            status:
+              latestProject.status ===
+              'Analysis Completed'
+                ? 'Analysis Completed'
+                : 'Analysis Completed',
+
+            ai_analysis:
+              latestProject.ai_analysis ||
+              analysis,
+
+            progress:
+              Array.isArray(
+                latestProject.progress
+              )
+                ? latestProject.progress
+                : [],
+
+            progress_evaluation:
+              latestProject.progress_evaluation ||
+              null
+          };
+
+          // Update AI analysis modal
+          setSelectedAnalysisProject(
+            backendProject
+          );
+
+          // Update dashboard list
+          setProjects(
+            (previousProjects) =>
+              previousProjects.map(
+                (project) =>
+                  project.project_id ===
+                  createdProjectId
+                    ? backendProject
+                    : project
+              )
+          );
+        }
+      } catch (refreshError) {
+        console.warn(
+          'Could not refresh project after analysis:',
+          refreshError
+        );
+      }
+
+      // -------------------------------------------------
+      // 14. Analysis completed
+      // -------------------------------------------------
+
       setIsAnalyzing(false);
+
+      console.log(
+        'PROJECT ANALYSIS COMPLETED:',
+        createdProjectId
+      );
 
       alert(
         'Project submitted and AI analysis completed successfully!'
       );
+
     } catch (error) {
       console.error(
         'PROJECT / AI INTEGRATION ERROR:',
@@ -487,8 +623,11 @@ const Dashboard = () => {
       setIsAnalyzing(false);
 
       alert(
+        error?.message ||
         'Unable to connect to the server.'
       );
+
+      throw error;
     }
   };
 
@@ -546,6 +685,43 @@ const Dashboard = () => {
   };
 
   // =====================================================
+  // LOAD PROJECT MILESTONES
+  // =====================================================
+
+  const loadProjectMilestones = async (
+    project
+  ) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/projects/${project.project_id}/milestones`
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        console.error(
+          'MILESTONE LOAD ERROR:',
+          data
+        );
+
+        return [];
+      }
+
+      return Array.isArray(data.milestones)
+        ? data.milestones
+        : [];
+    } catch (error) {
+      console.error(
+        'MILESTONE FETCH ERROR:',
+        error
+      );
+
+      return [];
+    }
+  };
+
+  // =====================================================
   // OPEN PROJECT DETAILS
   // =====================================================
 
@@ -560,18 +736,36 @@ const Dashboard = () => {
     const progress =
       await loadProjectProgress(project);
 
+    const milestones =
+      await loadProjectMilestones(project);
+
+    console.log(
+      'LOADED MILESTONES:',
+      milestones
+    );
+
     const projectWithProgress = {
       ...project,
-      progress
+
+      progress,
+
+      ai_analysis: {
+        ...(project.ai_analysis || {}),
+        milestones
+      }
     };
 
     setSelectedProject(
       projectWithProgress
     );
 
-    setProjectProgress(progress);
+    setProjectProgress(
+      progress
+    );
 
-    setIsProjectDetailOpen(true);
+    setIsProjectDetailOpen(
+      true
+    );
   };
 
   // =====================================================
@@ -651,7 +845,7 @@ const Dashboard = () => {
       );
 
       // -------------------------------------------------
-      // Reload latest progress after evaluation
+      // Reload latest progress
       // -------------------------------------------------
 
       const latestProgress =
@@ -663,6 +857,17 @@ const Dashboard = () => {
         latestProgress
       );
 
+      // -------------------------------------------------
+      // Get evaluation result
+      // -------------------------------------------------
+
+      const evaluation =
+        data.evaluation || {};
+
+      // -------------------------------------------------
+      // Update opened project
+      // -------------------------------------------------
+
       setSelectedProject(
         (previousProject) => {
           if (!previousProject) {
@@ -673,13 +878,16 @@ const Dashboard = () => {
             ...previousProject,
 
             progress:
-              latestProgress
+              latestProgress,
+
+            progress_evaluation:
+              evaluation
           };
         }
       );
 
       // -------------------------------------------------
-      // Also update project list
+      // Update project list
       // -------------------------------------------------
 
       setProjects(
@@ -692,15 +900,24 @@ const Dashboard = () => {
                     ...project,
 
                     progress:
-                      latestProgress
+                      latestProgress,
+
+                    progress_evaluation:
+                      evaluation
                   }
                 : project
           )
       );
 
+      console.log(
+        'PROGRESS EVALUATION SAVED TO UI:',
+        evaluation
+      );
+
       alert(
         'Project progress evaluated successfully!'
       );
+
     } catch (error) {
       console.error(
         'PROGRESS EVALUATION FETCH ERROR:',
@@ -710,6 +927,7 @@ const Dashboard = () => {
       alert(
         'Unable to connect to the progress evaluation service.'
       );
+
     } finally {
       setIsEvaluatingProgress(false);
     }
@@ -778,9 +996,7 @@ const Dashboard = () => {
   return (
     <div style={styles.page}>
 
-      {/* =================================================
-          SIDEBAR
-      ================================================= */}
+      {/* SIDEBAR */}
 
       <Sidebar
         onLogout={handleLogout}
@@ -790,25 +1006,24 @@ const Dashboard = () => {
         style={styles.mainContent}
       >
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        {/* HEADER */}
 
         <Header
           user={{
             name: 'Student',
             role: 'Student'
           }}
-          onProfileClick={() => window.location.href = "/profile"}
+          onProfileClick={() =>
+            window.location.href =
+              '/profile'
+          }
         />
 
         <main
           style={styles.content}
         >
 
-          {/* =================================================
-              PAGE HEADER
-          ================================================= */}
+          {/* PAGE HEADER */}
 
           <div
             style={styles.pageHeader}
@@ -845,9 +1060,7 @@ const Dashboard = () => {
 
           </div>
 
-          {/* =================================================
-              AI ANALYSIS STATUS
-          ================================================= */}
+          {/* AI ANALYSIS STATUS */}
 
           {isAnalyzing && (
             <div
@@ -860,9 +1073,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* =================================================
-              PROJECT SECTION
-          ================================================= */}
+          {/* PROJECT SECTION */}
 
           <section
             style={styles.section}
@@ -910,9 +1121,7 @@ const Dashboard = () => {
 
             </div>
 
-            {/* =================================================
-                EMPTY STATE
-            ================================================= */}
+            {/* EMPTY STATE */}
 
             {projects.length === 0 && (
               <div
@@ -956,9 +1165,7 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* =================================================
-                PROJECT LIST
-            ================================================= */}
+            {/* PROJECT LIST */}
 
             {projects.length > 0 && (
               <div
@@ -1063,17 +1270,13 @@ const Dashboard = () => {
 
                         </div>
 
-                        {/* =================================================
-                            PROJECT ACTIONS
-                        ================================================= */}
+                        {/* PROJECT ACTIONS */}
 
                         <div
                           style={
                             styles.projectActions
                           }
                         >
-
-                          {/* DETAILS */}
 
                           <button
                             type="button"
@@ -1088,8 +1291,6 @@ const Dashboard = () => {
                           >
                             Details
                           </button>
-
-                          {/* AI ANALYSIS */}
 
                           <button
                             type="button"
@@ -1122,26 +1323,19 @@ const Dashboard = () => {
 
       </div>
 
-      {/* =====================================================
-          PROJECT SUBMISSION MODAL
-      ===================================================== */}
+      {/* PROJECT SUBMISSION MODAL */}
 
       <IdeaSubmissionModal
         isOpen={isModalOpen}
         onClose={() =>
           setIsModalOpen(false)
         }
-        onSubmit={handleIdeaSubmit}
+        onSubmit={
+          handleIdeaSubmit
+        }
       />
 
-      {/* =====================================================
-          AI ANALYSIS MODAL
-
-          IMPORTANT:
-          Uses selectedAnalysisProject separately from
-          selectedProject so Details and AI Analysis do
-          not interfere with each other.
-      ===================================================== */}
+      {/* AI ANALYSIS MODAL */}
 
       <AIAnalysis
         project={
@@ -1152,19 +1346,13 @@ const Dashboard = () => {
         }
       />
 
-      {/* =====================================================
-          PROJECT DETAILS MODAL
-      ===================================================== */}
+      {/* PROJECT DETAILS MODAL */}
 
       {isProjectDetailOpen &&
         selectedProject && (
           <ProjectDetailModal
             project={
               selectedProject
-            }
-
-            progress={
-              projectProgress
             }
 
             onClose={
@@ -1192,22 +1380,16 @@ const Dashboard = () => {
 const styles = {
   page: {
     display: 'flex',
-
     width: '100%',
-
     minHeight: '100vh',
-
     backgroundColor: '#f8fafc',
-
     margin: 0,
-
     padding: 0,
     overflowX: 'hidden'
   },
 
   mainContent: {
     flex: 1,
-
     minWidth: 0,
     minHeight: '100vh',
     height: '100vh',
@@ -1221,129 +1403,89 @@ const styles = {
 
   pageHeader: {
     display: 'flex',
-
     justifyContent:
       'space-between',
-
     alignItems: 'center',
-
     marginBottom: '32px',
-
     gap: '20px'
   },
 
   heading: {
     margin: 0,
-
     fontSize: '28px',
-
     fontWeight: '700',
-
     color: '#0f172a'
   },
 
   subHeading: {
     margin: '8px 0 0',
-
     fontSize: '14px',
-
     color: '#64748b'
   },
 
   submitIdeaButton: {
     padding: '11px 18px',
-
     backgroundColor: '#1d4ed8',
-
     color: '#ffffff',
-
     border: 'none',
-
     borderRadius: '8px',
-
     fontSize: '14px',
-
     fontWeight: '500',
-
     cursor: 'pointer',
-
     whiteSpace: 'nowrap'
   },
 
   analysisBox: {
     backgroundColor: '#eff6ff',
-
     border:
       '1px solid #bfdbfe',
-
     borderRadius: '8px',
-
     padding: '12px 16px',
-
     marginBottom: '20px',
-
     color: '#1d4ed8',
-
     fontSize: '14px',
-
     fontWeight: '500'
   },
 
   section: {
     backgroundColor: '#ffffff',
-
     border:
       '1px solid #e2e8f0',
-
     borderRadius: '12px',
-
     padding: '24px'
   },
 
   sectionHeader: {
     display: 'flex',
-
     justifyContent:
       'space-between',
-
     alignItems: 'flex-start',
-
     marginBottom: '20px',
-
     gap: '20px'
   },
 
   sectionTitle: {
     margin: 0,
-
     fontSize: '18px',
-
     fontWeight: '600',
-
     color: '#0f172a'
   },
 
   sectionSubtitle: {
     margin: '6px 0 0',
-
     fontSize: '13px',
-
     color: '#64748b'
   },
 
   projectCount: {
     fontSize: '13px',
-
     color: '#64748b',
-
     whiteSpace: 'nowrap'
   },
 
   projectList: {
     display: 'flex',
-
     flexDirection: 'column',
-
     gap: '12px',
     maxHeight: '600px',
     overflowY: 'auto',
@@ -1353,218 +1495,143 @@ const styles = {
 
   projectCard: {
     display: 'flex',
-
     alignItems: 'center',
-
     justifyContent:
       'space-between',
-
     gap: '20px',
-
     padding: '18px',
-
     border:
       '1px solid #e2e8f0',
-
     borderRadius: '10px',
-
     backgroundColor: '#ffffff'
   },
 
   selectedProjectCard: {
     border:
       '1px solid #93c5fd',
-
     backgroundColor: '#eff6ff'
   },
 
   projectInfo: {
     flex: 1,
-
     minWidth: 0
   },
 
   projectTopRow: {
     display: 'flex',
-
     alignItems: 'center',
-
     gap: '12px',
-
     flexWrap: 'wrap'
   },
 
   projectTitle: {
     margin: 0,
-
     fontSize: '16px',
-
     fontWeight: '600',
-
     color: '#0f172a'
   },
 
   statusBadge: {
     display: 'inline-flex',
-
     alignItems: 'center',
-
     padding: '4px 9px',
-
     borderRadius: '999px',
-
     fontSize: '12px',
-
     fontWeight: '500'
   },
 
   projectDescription: {
     margin: '8px 0 5px',
-
     fontSize: '14px',
-
     lineHeight: '1.5',
-
     color: '#475569',
-
     display: '-webkit-box',
-
     WebkitLineClamp: 2,
-
     WebkitBoxOrient:
       'vertical',
-
     overflow: 'hidden'
   },
 
   projectDomain: {
     margin: '0 0 5px',
-
     fontSize: '12px',
-
     color: '#64748b'
   },
 
   projectDate: {
     margin: 0,
-
     fontSize: '12px',
-
     color: '#94a3b8'
   },
 
-  // =====================================================
-  // PROJECT ACTIONS
-  // =====================================================
-
   projectActions: {
     display: 'flex',
-
     alignItems: 'center',
-
     gap: '8px',
-
     flexShrink: 0
   },
 
   detailsButton: {
     padding: '8px 12px',
-
     borderRadius: '8px',
-
     border:
       '1px solid #e2e8f0',
-
     backgroundColor: '#f8fafc',
-
     color: '#334155',
-
     fontSize: '12px',
-
     fontWeight: '600',
-
     cursor: 'pointer',
-
     whiteSpace: 'nowrap'
   },
 
   arrowButton: {
     width: '38px',
-
     height: '38px',
-
     borderRadius: '8px',
-
     border:
       '1px solid #e2e8f0',
-
     backgroundColor: '#f8fafc',
-
     color: '#1d4ed8',
-
     fontSize: '20px',
-
     cursor: 'pointer',
-
     display: 'flex',
-
     alignItems: 'center',
-
     justifyContent: 'center',
-
     flexShrink: 0
   },
 
   emptyState: {
     textAlign: 'center',
-
     padding: '60px 20px',
-
     border:
       '1px dashed #cbd5e1',
-
     borderRadius: '10px',
-
     backgroundColor: '#f8fafc'
   },
 
   emptyTitle: {
     margin: '0 0 8px',
-
     fontSize: '17px',
-
     fontWeight: '600',
-
     color: '#334155'
   },
 
   emptyText: {
     maxWidth: '480px',
-
     margin: '0 auto 20px',
-
     fontSize: '14px',
-
     lineHeight: '1.6',
-
     color: '#64748b'
   },
 
   emptyButton: {
     padding: '10px 16px',
-
     backgroundColor: '#1d4ed8',
-
     color: '#ffffff',
-
     border: 'none',
-
     borderRadius: '7px',
-
     fontSize: '14px',
-
     fontWeight: '500',
-
     cursor: 'pointer'
   }
 };

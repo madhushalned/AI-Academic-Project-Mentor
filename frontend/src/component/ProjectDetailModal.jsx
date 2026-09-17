@@ -11,6 +11,7 @@ const ProjectDetailModal = ({
   }
 
   const aiAnalysis = project.ai_analysis || {};
+  
 
   const progressEvaluation =
     project.progress_evaluation || {};
