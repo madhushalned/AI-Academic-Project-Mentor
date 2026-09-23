@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../common/sidebar';
 import Header from '../common/header';
 import IdeaSubmissionModal from '../component/ideaSubmission';
@@ -8,6 +9,8 @@ import ProjectDetailModal from '../component/ProjectDetailModal';
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   // =====================================================
   // MODAL STATES
   // =====================================================
@@ -169,11 +172,11 @@ const Dashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('student');
+    sessionStorage.clear();
 
     console.log('Logging out user...');
 
-    // If your application has a login route:
-    // window.location.href = '/login';
+    navigate('/login');
   };
 
   // =====================================================
@@ -249,12 +252,6 @@ const Dashboard = () => {
 
       // -------------------------------------------------
       // 5. Prepare project data
-      // -------------------------------------------------
-      //
-      // Description now contains both:
-      // Project Description + Problem Statement
-      //
-      // No separate problemStatement field is sent.
       // -------------------------------------------------
 
       const projectData = {
@@ -394,12 +391,10 @@ const Dashboard = () => {
         ]
       );
 
-      // Select project for AI analysis
       setSelectedAnalysisProject(
         newProject
       );
 
-      // Close submission modal
       setIsModalOpen(false);
 
       // -------------------------------------------------
@@ -500,11 +495,6 @@ const Dashboard = () => {
       // -------------------------------------------------
       // 13. Reload project from backend
       // -------------------------------------------------
-      //
-      // This verifies that MongoDB actually contains:
-      // - status
-      // - ai_analysis
-      // -------------------------------------------------
 
       try {
         const latestResponse =
@@ -575,12 +565,10 @@ const Dashboard = () => {
               null
           };
 
-          // Update AI analysis modal
           setSelectedAnalysisProject(
             backendProject
           );
 
-          // Update dashboard list
           setProjects(
             (previousProjects) =>
               previousProjects.map(
@@ -1637,3 +1625,4 @@ const styles = {
 };
 
 export default Dashboard;
+
