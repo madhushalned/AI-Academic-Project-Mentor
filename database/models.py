@@ -59,6 +59,7 @@ class Blueprint(BaseModel):
     student_id: str
     original_idea: str
     status: str = "pending"
+    version: int = 1
     feasibility: Optional[FeasibilitySection] = None
     scope: Optional[ScopeSection] = None
     tech_stack: Optional[TechStackSection] = None
