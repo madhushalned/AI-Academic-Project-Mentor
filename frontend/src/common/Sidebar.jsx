@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const NAV_ITEMS = [
   {
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
 ];
 
 const Sidebar = ({ onLogout }) => {
+  const navigate = useNavigate();
   return (
     <aside style={styles.sidebar}>
       {/* Brand */}
@@ -47,6 +49,7 @@ const Sidebar = ({ onLogout }) => {
               <button
                 key={item.route}
                 type="button"
+                onClick={() => navigate(item.route)}
                 style={{
                   ...styles.navButton,
                   backgroundColor: isActive

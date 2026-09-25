@@ -2,9 +2,7 @@ from datetime import datetime
 
 from app.database import db
 
-
 projects_collection = db["projects"]
-
 
 def create_project(project):
     """
@@ -64,6 +62,63 @@ def update_project_ai_analysis(project_id, ai_analysis):
             "$set": {
                 "ai_analysis": ai_analysis,
                 "status": "Analysis Completed"
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        return False
+
+    return True
+
+def update_project_progress(project_id, progress_data):
+    """
+    Update progress for a specific milestone week.
+    """
+
+    project = projects_collection.find_one(
+        {"project_id": project_id}
+    )
+
+    if project is None:
+        return False
+
+    progress_list = project.get("progress", [])
+
+    updated = False
+
+    for item in progress_list:
+        if item.get("week") == progress_data["week"]:
+            item["status"] = progress_data["status"]
+            item["progress"] = progress_data["progress"]
+            item["remarks"] = progress_data.get("remarks")
+            updated = True
+            break
+
+    if not updated:
+        progress_list.append(progress_data)
+
+    projects_collection.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "progress": progress_list
+            }
+        }
+    )
+
+    return True
+
+def update_project_progress_evaluation(project_id, evaluation):
+    """
+    Save AI-generated progress evaluation for a project.
+    """
+
+    result = projects_collection.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "progress_evaluation": evaluation
             }
         }
     )

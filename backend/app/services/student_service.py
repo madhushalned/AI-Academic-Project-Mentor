@@ -3,7 +3,7 @@ from datetime import datetime
 import bcrypt
 
 from app.database import students_collection
-
+from app.schemas.student_schema import StudentUpdate
 
 def create_student(student):
     """
@@ -101,3 +101,25 @@ def login_student(email, password):
         student["_id"] = str(student["_id"])
 
     return student
+
+def update_student(student_id, student_data):
+    """
+    Update an existing student's profile.
+    """
+
+    update_data = student_data.model_dump(exclude_unset=True)
+
+    result = students_collection.update_one(
+        {"student_id": student_id},
+        {"$set": update_data}
+    )
+
+    if result.matched_count == 0:
+        return None
+
+    updated_student = students_collection.find_one(
+        {"student_id": student_id},
+        {"password": 0}
+    )
+
+    return updated_student

@@ -60,3 +60,29 @@ def get_skill_assessment_by_student_id(student_id):
         assessment["_id"] = str(assessment["_id"])
 
     return assessment
+
+def update_skill_assessment(student_id, skill_data):
+    """
+    Update an existing skill assessment for a student.
+    """
+
+    update_data = skill_data.model_dump(exclude_unset=True)
+
+    result = skill_assessments_collection.update_one(
+        {"student_id": student_id},
+        {"$set": update_data}
+    )
+
+    if result.matched_count == 0:
+        return None
+
+    updated_assessment = skill_assessments_collection.find_one(
+        {"student_id": student_id}
+    )
+
+    if updated_assessment and "_id" in updated_assessment:
+        updated_assessment["_id"] = str(
+            updated_assessment["_id"]
+        )
+
+    return updated_assessment

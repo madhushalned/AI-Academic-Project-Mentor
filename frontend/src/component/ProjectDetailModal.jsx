@@ -3,46 +3,128 @@ import React from 'react';
 const ProjectDetailModal = ({
   project,
   onClose,
-  onToggleTask
+  onEvaluateProgress,
+  isEvaluatingProgress
 }) => {
   if (!project) {
     return null;
   }
 
-  const tasks = project.tasks || [];
+  const aiAnalysis = project.ai_analysis || {};
+  
 
-  const totalTasks = tasks.length;
+  const progressEvaluation =
+    project.progress_evaluation || {};
 
-  const completedCount = tasks.filter(
-    (task) => task.completed
+  const milestones = Array.isArray(aiAnalysis.milestones)
+    ? aiAnalysis.milestones
+    : [];
+
+  const progressList = Array.isArray(project.progress)
+    ? project.progress
+    : [];
+
+  // Create lookup for weekly progress
+  const progressByWeek = {};
+
+  progressList.forEach((item) => {
+    if (
+      item &&
+      item.week !== undefined &&
+      item.week !== null
+    ) {
+      progressByWeek[item.week] = item;
+    }
+  });
+
+  // Get planned milestone weeks
+  const plannedWeeks = milestones
+    .map((milestone) => milestone.week)
+    .filter(
+      (week) =>
+        week !== undefined &&
+        week !== null
+    );
+
+  // Calculate overall progress
+  let overallProgress = 0;
+
+  if (plannedWeeks.length > 0) {
+    const totalProgress = plannedWeeks.reduce(
+      (total, week) => {
+        const progress =
+          Number(
+            progressByWeek[week]?.progress
+          ) || 0;
+
+        return total + progress;
+      },
+      0
+    );
+
+    overallProgress = Math.round(
+      totalProgress / plannedWeeks.length
+    );
+  } else if (progressList.length > 0) {
+    const totalProgress = progressList.reduce(
+      (total, item) => {
+        return (
+          total +
+          (Number(item?.progress) || 0)
+        );
+      },
+      0
+    );
+
+    overallProgress = Math.round(
+      totalProgress / progressList.length
+    );
+  }
+
+  // Keep progress between 0 and 100
+  overallProgress = Math.min(
+    Math.max(overallProgress, 0),
+    100
+  );
+
+  // Completed weeks
+  const completedWeeks = progressList.filter(
+    (item) =>
+      Number(item?.progress) >= 100
   ).length;
 
-  const pendingCount = totalTasks - completedCount;
+  // Total planned weeks
+  const totalWeeks =
+    plannedWeeks.length > 0
+      ? plannedWeeks.length
+      : progressList.length;
 
-  const progressPercent =
-    totalTasks === 0
-      ? 0
-      : Math.round((completedCount / totalTasks) * 100);
+  const pendingWeeks = Math.max(
+    totalWeeks - completedWeeks,
+    0
+  );
 
   return (
     <div
       style={styles.overlay}
       onClick={onClose}
     >
-
       <div
         style={styles.modal}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
 
         {/* Header */}
         <div style={styles.header}>
-
           <div style={styles.headerContent}>
 
-            <span style={styles.dateBadge}>
-              {project.dateText}
-            </span>
+            {project.dateText && (
+              <span style={styles.dateBadge}>
+                {project.dateText}
+              </span>
+            )}
 
             <h2 style={styles.title}>
               {project.title}
@@ -58,7 +140,6 @@ const ProjectDetailModal = ({
           >
             &times;
           </button>
-
         </div>
 
         {/* Status */}
@@ -68,11 +149,11 @@ const ProjectDetailModal = ({
           </span>
 
           <span style={styles.statusBadge}>
-            {project.status}
+            {project.status || 'Not Started'}
           </span>
         </div>
 
-        {/* Description */}
+        {/* Project Description */}
         <div style={styles.descriptionContainer}>
 
           <h3 style={styles.sectionLabel}>
@@ -80,10 +161,56 @@ const ProjectDetailModal = ({
           </h3>
 
           <p style={styles.description}>
-            {project.description}
+            {project.description ||
+              'No description available.'}
           </p>
 
         </div>
+
+        {/* Domain */}
+        {project.domain && (
+          <div style={styles.infoSection}>
+
+            <h3 style={styles.sectionLabel}>
+              Domain
+            </h3>
+
+            <p style={styles.description}>
+              {project.domain}
+            </p>
+
+          </div>
+        )}
+
+        {/* Problem Statement */}
+        {project.problemStatement && (
+          <div style={styles.infoSection}>
+
+            <h3 style={styles.sectionLabel}>
+              Problem Statement
+            </h3>
+
+            <p style={styles.description}>
+              {project.problemStatement}
+            </p>
+
+          </div>
+        )}
+
+        {/* Expected Outcome */}
+        {project.expectedOutcome && (
+          <div style={styles.infoSection}>
+
+            <h3 style={styles.sectionLabel}>
+              Expected Outcome
+            </h3>
+
+            <p style={styles.description}>
+              {project.expectedOutcome}
+            </p>
+
+          </div>
+        )}
 
         {/* Metrics */}
         <div style={styles.metricsRow}>
@@ -92,12 +219,12 @@ const ProjectDetailModal = ({
           <div
             style={{
               ...styles.metricCard,
-              borderLeft: '4px solid #22c55e'
+              borderLeft:
+                '4px solid #22c55e'
             }}
           >
-
             <span style={styles.metricLabel}>
-              Tasks Completed
+              Weeks Completed
             </span>
 
             <span
@@ -106,21 +233,20 @@ const ProjectDetailModal = ({
                 color: '#16a34a'
               }}
             >
-              {completedCount}
+              {completedWeeks}
             </span>
-
           </div>
 
           {/* Pending */}
           <div
             style={{
               ...styles.metricCard,
-              borderLeft: '4px solid #eab308'
+              borderLeft:
+                '4px solid #eab308'
             }}
           >
-
             <span style={styles.metricLabel}>
-              Tasks Left
+              Weeks Pending
             </span>
 
             <span
@@ -129,21 +255,20 @@ const ProjectDetailModal = ({
                 color: '#ca8a04'
               }}
             >
-              {pendingCount}
+              {pendingWeeks}
             </span>
-
           </div>
 
-          {/* Progress */}
+          {/* Overall */}
           <div
             style={{
               ...styles.metricCard,
-              borderLeft: '4px solid #2563eb'
+              borderLeft:
+                '4px solid #2563eb'
             }}
           >
-
             <span style={styles.metricLabel}>
-              Progress
+              Overall Progress
             </span>
 
             <span
@@ -152,24 +277,25 @@ const ProjectDetailModal = ({
                 color: '#1d4ed8'
               }}
             >
-              {progressPercent}%
+              {overallProgress}%
             </span>
-
           </div>
 
         </div>
 
-        {/* Progress Bar */}
+        {/* Overall Progress */}
         <div style={styles.progressSection}>
 
           <div style={styles.progressHeader}>
 
             <span style={styles.progressLabel}>
-              Overall Progress
+              Overall Project Progress
             </span>
 
-            <span style={styles.progressPercentage}>
-              {progressPercent}%
+            <span
+              style={styles.progressPercentage}
+            >
+              {overallProgress}%
             </span>
 
           </div>
@@ -179,7 +305,7 @@ const ProjectDetailModal = ({
             <div
               style={{
                 ...styles.progressBar,
-                width: `${progressPercent}%`
+                width: `${overallProgress}%`
               }}
             />
 
@@ -187,119 +313,600 @@ const ProjectDetailModal = ({
 
         </div>
 
-        {/* Tasks */}
-        <div style={styles.taskListContainer}>
+        {/* AI Progress Evaluation Action */}
+        <div style={styles.evaluationActionSection}>
 
-          <div style={styles.taskHeaderRow}>
+          <div>
+            <h3 style={styles.sectionTitle}>
+              AI Progress Evaluation
+            </h3>
+
+            <p style={styles.sectionSubtitle}>
+              Compare your current progress with
+              the AI-generated project plan.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            style={{
+              ...styles.evaluateButton,
+              opacity: isEvaluatingProgress
+                ? 0.7
+                : 1,
+              cursor: isEvaluatingProgress
+                ? 'not-allowed'
+                : 'pointer'
+            }}
+            onClick={onEvaluateProgress}
+            disabled={isEvaluatingProgress}
+          >
+            {isEvaluatingProgress
+              ? 'Evaluating...'
+              : 'Evaluate Progress'}
+          </button>
+
+        </div>
+
+        {/* AI Progress Evaluation Result */}
+        {Object.keys(progressEvaluation).length > 0 && (
+          <div style={styles.evaluationContainer}>
+
+            <div style={styles.evaluationHeader}>
+
+              <div>
+                <h3 style={styles.sectionTitle}>
+                  AI Progress Evaluation
+                </h3>
+
+                <p style={styles.sectionSubtitle}>
+                  Evaluation generated by the
+                  Progress Mentor agent.
+                </p>
+              </div>
+
+              <span style={styles.evaluationScore}>
+                {progressEvaluation.progress_score ?? 0}%
+              </span>
+
+            </div>
+
+            {/* Overall Assessment */}
+            {progressEvaluation.overall_assessment && (
+              <div style={styles.evaluationBox}>
+
+                <span style={styles.evaluationLabel}>
+                  Overall Assessment
+                </span>
+
+                <p style={styles.evaluationText}>
+                  {progressEvaluation.overall_assessment}
+                </p>
+
+              </div>
+            )}
+
+            {/* Current Status */}
+            {progressEvaluation.current_status && (
+              <div style={styles.evaluationBox}>
+
+                <span style={styles.evaluationLabel}>
+                  Current Status
+                </span>
+
+                <p style={styles.evaluationText}>
+                  {progressEvaluation.current_status}
+                </p>
+
+              </div>
+            )}
+
+            {/* Completed Weeks */}
+            {Array.isArray(
+              progressEvaluation.completed_weeks
+            ) &&
+              progressEvaluation.completed_weeks.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Completed Weeks
+                  </span>
+
+                  <p style={styles.evaluationText}>
+                    {progressEvaluation.completed_weeks
+                      .map(
+                        (week) =>
+                          `Week ${week}`
+                      )
+                      .join(', ')}
+                  </p>
+
+                </div>
+              )}
+
+            {/* Delayed / Incomplete Weeks */}
+            {Array.isArray(
+              progressEvaluation.delayed_weeks
+            ) &&
+              progressEvaluation.delayed_weeks.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Delayed / Incomplete Weeks
+                  </span>
+
+                  <p style={styles.evaluationText}>
+                    {progressEvaluation.delayed_weeks
+                      .map(
+                        (week) =>
+                          `Week ${week}`
+                      )
+                      .join(', ')}
+                  </p>
+
+                </div>
+              )}
+
+            {/* Issues */}
+            {Array.isArray(
+              progressEvaluation.issues
+            ) &&
+              progressEvaluation.issues.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Issues
+                  </span>
+
+                  <ul style={styles.evaluationList}>
+
+                    {progressEvaluation.issues.map(
+                      (issue, index) => (
+                        <li key={index}>
+                          {issue}
+                        </li>
+                      )
+                    )}
+
+                  </ul>
+
+                </div>
+              )}
+
+            {/* Recommendations */}
+            {Array.isArray(
+              progressEvaluation.recommendations
+            ) &&
+              progressEvaluation.recommendations.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Recommendations
+                  </span>
+
+                  <ul style={styles.evaluationList}>
+
+                    {progressEvaluation.recommendations.map(
+                      (
+                        recommendation,
+                        index
+                      ) => (
+                        <li key={index}>
+                          {recommendation}
+                        </li>
+                      )
+                    )}
+
+                  </ul>
+
+                </div>
+              )}
+
+            {/* Next Actions */}
+            {Array.isArray(
+              progressEvaluation.next_actions
+            ) &&
+              progressEvaluation.next_actions.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Next Actions
+                  </span>
+
+                  <ul style={styles.evaluationList}>
+
+                    {progressEvaluation.next_actions.map(
+                      (action, index) => (
+                        <li key={index}>
+                          {action}
+                        </li>
+                      )
+                    )}
+
+                  </ul>
+
+                </div>
+              )}
+
+          </div>
+        )}
+
+        {/* AI Milestones */}
+        <div style={styles.milestoneContainer}>
+
+          <div style={styles.sectionHeaderRow}>
 
             <div>
-              <h3 style={styles.taskHeader}>
-                Project Action Items
+              <h3 style={styles.sectionTitle}>
+                AI-Generated Project Milestones
               </h3>
 
-              <p style={styles.taskSubtitle}>
-                Complete these tasks to move your project forward.
+              <p style={styles.sectionSubtitle}>
+                Milestones generated by CrewAI
+                during project analysis.
               </p>
             </div>
 
-            <span style={styles.taskCount}>
-              {completedCount}/{totalTasks}
+            <span style={styles.countBadge}>
+              {milestones.length}
             </span>
 
           </div>
 
-          {tasks.length === 0 ? (
+          {milestones.length === 0 ? (
 
-            <div style={styles.noTasks}>
-              No tasks available for this project yet.
+            <div style={styles.emptyState}>
+              AI milestones are not available yet.
+              Analyze the project first.
             </div>
 
           ) : (
 
-            <ul style={styles.taskList}>
+            <div style={styles.milestoneList}>
 
-              {tasks.map((task) => (
+              {milestones.map(
+                (milestone, index) => {
 
-                <li
-                  key={task.id}
-                  style={{
-                    ...styles.taskItem,
-                    ...(task.completed
-                      ? styles.completedTaskItem
-                      : {})
-                  }}
-                >
+                  const week =
+                    milestone?.week ??
+                    index + 1;
 
-                  <label style={styles.checkboxLabel}>
+                  const weekProgress = Math.min(
+                    Math.max(
+                      Number(
+                        progressByWeek[week]
+                          ?.progress
+                      ) || 0,
+                      0
+                    ),
+                    100
+                  );
 
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onChange={() =>
-                        onToggleTask(
-                          project.id,
-                          task.id
-                        )
+                  const weekStatus =
+                    progressByWeek[week]
+                      ?.status ||
+                    'not_started';
+
+                  const remarks =
+                    progressByWeek[week]
+                      ?.remarks;
+
+                  const tasks =
+                    Array.isArray(
+                      milestone?.tasks
+                    )
+                      ? milestone.tasks
+                      : [];
+
+                  const deliverables =
+                    Array.isArray(
+                      milestone?.deliverables
+                    )
+                      ? milestone.deliverables
+                      : [];
+
+                  return (
+                    <div
+                      key={`${week}-${index}`}
+                      style={
+                        styles.milestoneCard
                       }
-                      style={styles.checkbox}
-                    />
-
-                    <span
-                      style={{
-                        ...styles.taskText,
-                        textDecoration: task.completed
-                          ? 'line-through'
-                          : 'none',
-
-                        color: task.completed
-                          ? '#94a3b8'
-                          : '#334155'
-                      }}
                     >
-                      {task.text}
-                    </span>
 
-                  </label>
+                      {/* Milestone Header */}
+                      <div
+                        style={
+                          styles.milestoneHeader
+                        }
+                      >
 
-                </li>
+                        <div>
 
-              ))}
+                          <span
+                            style={
+                              styles.weekBadge
+                            }
+                          >
+                            Week {week}
+                          </span>
 
-            </ul>
+                          <h4
+                            style={
+                              styles.milestoneTitle
+                            }
+                          >
+                            {milestone?.title ||
+                              `Milestone ${
+                                index + 1
+                              }`}
+                          </h4>
 
+                        </div>
+
+                        <span
+                          style={{
+                            ...styles.progressBadge,
+                            backgroundColor:
+                              weekProgress >=
+                              100
+                                ? '#dcfce7'
+                                : weekProgress >
+                                  0
+                                ? '#dbeafe'
+                                : '#f1f5f9',
+                            color:
+                              weekProgress >=
+                              100
+                                ? '#15803d'
+                                : weekProgress >
+                                  0
+                                ? '#1d4ed8'
+                                : '#64748b'
+                          }}
+                        >
+                          {weekProgress}%
+                        </span>
+
+                      </div>
+
+                      {/* Description */}
+                      {milestone?.description && (
+                        <p
+                          style={
+                            styles.milestoneDescription
+                          }
+                        >
+                          {milestone.description}
+                        </p>
+                      )}
+
+                      {/* Weekly Status */}
+                      <div
+                        style={
+                          styles.weekStatusRow
+                        }
+                      >
+
+                        <span
+                          style={
+                            styles.smallLabel
+                          }
+                        >
+                          Current Status:
+                        </span>
+
+                        <span
+                          style={
+                            styles.statusText
+                          }
+                        >
+                          {String(
+                            weekStatus
+                          ).replace(
+                            /_/g,
+                            ' '
+                          )}
+                        </span>
+
+                      </div>
+
+                      {/* Weekly Progress */}
+                      <div
+                        style={
+                          styles.weekProgressTrack
+                        }
+                      >
+
+                        <div
+                          style={{
+                            ...styles.weekProgressBar,
+                            width: `${weekProgress}%`
+                          }}
+                        />
+
+                      </div>
+
+                      {/* Tasks */}
+                      {tasks.length > 0 && (
+                        <div
+                          style={
+                            styles.subSection
+                          }
+                        >
+
+                          <h5
+                            style={
+                              styles.subSectionTitle
+                            }
+                          >
+                            Tasks
+                          </h5>
+
+                          <ul
+                            style={
+                              styles.taskList
+                            }
+                          >
+
+                            {tasks.map(
+                              (
+                                task,
+                                taskIndex
+                              ) => (
+
+                                <li
+                                  key={
+                                    taskIndex
+                                  }
+                                  style={
+                                    styles.taskItem
+                                  }
+                                >
+                                  {typeof task ===
+                                  'string'
+                                    ? task
+                                    : task?.title ||
+                                      task?.task ||
+                                      task?.name ||
+                                      JSON.stringify(
+                                        task
+                                      )}
+                                </li>
+
+                              )
+                            )}
+
+                          </ul>
+
+                        </div>
+                      )}
+
+                      {/* Deliverables */}
+                      {deliverables.length >
+                        0 && (
+                        <div
+                          style={
+                            styles.subSection
+                          }
+                        >
+
+                          <h5
+                            style={
+                              styles.subSectionTitle
+                            }
+                          >
+                            Deliverables
+                          </h5>
+
+                          <ul
+                            style={
+                              styles.taskList
+                            }
+                          >
+
+                            {deliverables.map(
+                              (
+                                deliverable,
+                                deliverableIndex
+                              ) => (
+
+                                <li
+                                  key={
+                                    deliverableIndex
+                                  }
+                                  style={
+                                    styles.deliverableItem
+                                  }
+                                >
+                                  {typeof deliverable ===
+                                  'string'
+                                    ? deliverable
+                                    : deliverable?.title ||
+                                      deliverable?.name ||
+                                      JSON.stringify(
+                                        deliverable
+                                      )}
+                                </li>
+
+                              )
+                            )}
+
+                          </ul>
+
+                        </div>
+                      )}
+
+                      {/* Remarks */}
+                      {remarks && (
+                        <div
+                          style={
+                            styles.remarksBox
+                          }
+                        >
+
+                          <span
+                            style={
+                              styles.smallLabel
+                            }
+                          >
+                            Progress Remarks
+                          </span>
+
+                          <p
+                            style={
+                              styles.remarksText
+                            }
+                          >
+                            {remarks}
+                          </p>
+
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                }
+              )}
+
+            </div>
           )}
 
         </div>
 
       </div>
-
     </div>
   );
 };
 
 const styles = {
+
   overlay: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor:
+      'rgba(15, 23, 42, 0.45)',
     backdropFilter: 'blur(2px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '20px',
     zIndex: 1000,
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    overflowY: 'auto'
   },
 
   modal: {
+    position: 'relative',
     backgroundColor: '#ffffff',
     width: '100%',
-    maxWidth: '600px',
+    maxWidth: '700px',
+    height: '90vh',
     maxHeight: '90vh',
-    overflowY: 'auto',
+    overflowY: 'scroll',
+    overflowX: 'hidden',
     borderRadius: '16px',
     padding: '28px',
     boxSizing: 'border-box',
@@ -380,7 +987,15 @@ const styles = {
   descriptionContainer: {
     marginTop: '20px',
     paddingBottom: '18px',
-    borderBottom: '1px solid #f1f5f9'
+    borderBottom:
+      '1px solid #f1f5f9'
+  },
+
+  infoSection: {
+    marginTop: '18px',
+    paddingBottom: '18px',
+    borderBottom:
+      '1px solid #f1f5f9'
   },
 
   sectionLabel: {
@@ -400,7 +1015,8 @@ const styles = {
 
   metricsRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns:
+      'repeat(3, 1fr)',
     gap: '12px',
     margin: '20px 0 18px 0'
   },
@@ -411,7 +1027,9 @@ const styles = {
     borderRadius: '8px',
     display: 'flex',
     flexDirection: 'column',
-    minWidth: 0
+    minWidth: 0,
+    borderLeft:
+      '4px solid #2563eb'
   },
 
   metricLabel: {
@@ -461,36 +1079,120 @@ const styles = {
     height: '100%',
     backgroundColor: '#2563eb',
     borderRadius: '5px',
-    transition: 'width 0.3s ease'
+    transition:
+      'width 0.3s ease'
   },
 
-  taskListContainer: {
-    borderTop: '1px solid #f1f5f9',
-    paddingTop: '18px'
+  /* AI Evaluation Button Section */
+  evaluationActionSection: {
+    marginTop: '20px',
+    padding: '16px',
+    backgroundColor: '#f8fafc',
+    borderRadius: '10px',
+    border: '1px solid #e2e8f0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '15px'
   },
 
-  taskHeaderRow: {
+  evaluateButton: {
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '9px 14px',
+    fontSize: '12px',
+    fontWeight: '700',
+    flexShrink: 0
+  },
+
+  /* AI Evaluation Result */
+  evaluationContainer: {
+    marginTop: '15px',
+    padding: '18px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px'
+  },
+
+  evaluationHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: '15px',
-    marginBottom: '12px'
+    marginBottom: '15px'
   },
 
-  taskHeader: {
+  evaluationScore: {
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    padding: '7px 11px',
+    borderRadius: '12px',
+    fontSize: '13px',
+    fontWeight: '700',
+    flexShrink: 0
+  },
+
+  evaluationBox: {
+    marginTop: '12px',
+    padding: '11px 13px',
+    backgroundColor: '#f8fafc',
+    borderRadius: '8px'
+  },
+
+  evaluationLabel: {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: '5px'
+  },
+
+  evaluationText: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#475569',
+    lineHeight: '1.5'
+  },
+
+  evaluationList: {
+    margin: 0,
+    paddingLeft: '18px',
+    color: '#475569',
+    fontSize: '12px',
+    lineHeight: '1.6'
+  },
+
+  /* Milestones */
+  milestoneContainer: {
+    borderTop:
+      '1px solid #f1f5f9',
+    paddingTop: '18px'
+  },
+
+  sectionHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '15px',
+    marginBottom: '15px'
+  },
+
+  sectionTitle: {
     fontSize: '14px',
     fontWeight: '700',
     color: '#0f172a',
     margin: 0
   },
 
-  taskSubtitle: {
+  sectionSubtitle: {
     fontSize: '12px',
     color: '#94a3b8',
     margin: '4px 0 0 0'
   },
 
-  taskCount: {
+  countBadge: {
     backgroundColor: '#eff6ff',
     color: '#1d4ed8',
     fontSize: '11px',
@@ -500,48 +1202,142 @@ const styles = {
     flexShrink: 0
   },
 
-  taskList: {
-    listStyle: 'none',
-    padding: 0,
-    margin: 0,
+  milestoneList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px'
+    gap: '12px'
   },
 
-  taskItem: {
-    padding: '11px 12px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    backgroundColor: '#ffffff',
-    transition: 'background-color 0.2s ease'
+  milestoneCard: {
+    border:
+      '1px solid #e2e8f0',
+    borderRadius: '10px',
+    padding: '16px',
+    backgroundColor: '#ffffff'
   },
 
-  completedTaskItem: {
-    backgroundColor: '#f8fafc'
-  },
-
-  checkboxLabel: {
+  milestoneHeader: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    cursor: 'pointer',
-    width: '100%'
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '15px'
   },
 
-  checkbox: {
-    width: '16px',
-    height: '16px',
-    cursor: 'pointer',
+  weekBadge: {
+    display: 'inline-block',
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
+    fontSize: '10px',
+    fontWeight: '700',
+    padding: '4px 7px',
+    borderRadius: '6px',
+    marginBottom: '5px'
+  },
+
+  milestoneTitle: {
+    margin: 0,
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+
+  progressBadge: {
+    padding: '5px 9px',
+    borderRadius: '12px',
+    fontSize: '11px',
+    fontWeight: '700',
     flexShrink: 0
   },
 
-  taskText: {
-    fontSize: '13px',
-    lineHeight: '1.4'
+  milestoneDescription: {
+    fontSize: '12px',
+    color: '#64748b',
+    lineHeight: '1.5',
+    margin: '10px 0'
   },
 
-  noTasks: {
+  weekStatusRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    marginTop: '10px'
+  },
+
+  smallLabel: {
+    fontSize: '11px',
+    color: '#64748b',
+    fontWeight: '600'
+  },
+
+  statusText: {
+    fontSize: '11px',
+    color: '#334155',
+    fontWeight: '600',
+    textTransform: 'capitalize'
+  },
+
+  weekProgressTrack: {
+    width: '100%',
+    height: '6px',
+    backgroundColor: '#e2e8f0',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    marginTop: '8px'
+  },
+
+  weekProgressBar: {
+    height: '100%',
+    backgroundColor: '#2563eb',
+    borderRadius: '4px',
+    transition:
+      'width 0.3s ease'
+  },
+
+  subSection: {
+    marginTop: '14px'
+  },
+
+  subSectionTitle: {
+    margin: '0 0 7px 0',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#334155'
+  },
+
+  taskList: {
+    margin: 0,
+    paddingLeft: '18px'
+  },
+
+  taskItem: {
+    fontSize: '12px',
+    color: '#475569',
+    lineHeight: '1.5',
+    marginBottom: '4px'
+  },
+
+  deliverableItem: {
+    fontSize: '12px',
+    color: '#334155',
+    lineHeight: '1.5',
+    marginBottom: '4px'
+  },
+
+  remarksBox: {
+    marginTop: '14px',
+    padding: '10px 12px',
+    backgroundColor: '#f8fafc',
+    borderRadius: '7px'
+  },
+
+  remarksText: {
+    margin: '4px 0 0 0',
+    fontSize: '12px',
+    color: '#475569',
+    lineHeight: '1.5'
+  },
+
+  emptyState: {
     padding: '20px',
     textAlign: 'center',
     color: '#94a3b8',

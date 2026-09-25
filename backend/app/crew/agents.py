@@ -112,3 +112,20 @@ risk_agent = Agent(
     llm=llm,
     verbose=True
 )
+
+progress_mentor_agent = Agent(
+    role="Academic Project Progress Mentor",
+    goal=(
+        "Evaluate a student's actual project progress against the "
+        "AI-generated milestone plan and provide practical academic "
+        "mentorship and recommendations."
+    ),
+    backstory=(
+        "You are an experienced academic project mentor who helps "
+        "students stay on schedule. You carefully compare planned "
+        "milestones with completed and ongoing work, identify delays "
+        "and issues, and provide realistic next actions."
+    ),
+    llm=llm,
+    verbose=True
+)

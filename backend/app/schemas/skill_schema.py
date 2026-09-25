@@ -8,6 +8,10 @@ class SkillAssessmentCreate(BaseModel):
     normalized_vector: Dict[str, float] = Field(default_factory=dict)
     confidence: str = "medium"
 
+class SkillAssessmentUpdate(BaseModel):
+    raw_scores: Dict[str, float] = Field(default_factory=dict)
+    normalized_vector: Dict[str, float] = Field(default_factory=dict)
+    confidence: str = "medium"
 
 class SkillAssessmentResponse(BaseModel):
     student_id: str

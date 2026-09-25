@@ -1,14 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 
 
 class FeasibilityAnalysis(BaseModel):
-    score: Optional[float] = None
+    score: Optional[float] = Field(default=None, ge=0, le=100)
     decision: Optional[str] = None
     strengths: List[str] = Field(default_factory=list)
     concerns: List[str] = Field(default_factory=list)
     recommendation: Optional[str] = None
-
 
 class ScopeAnalysis(BaseModel):
     problem_statement: Optional[str] = None
@@ -17,7 +16,6 @@ class ScopeAnalysis(BaseModel):
     out_of_scope: List[str] = Field(default_factory=list)
     key_functionalities: List[str] = Field(default_factory=list)
     expected_outcomes: List[str] = Field(default_factory=list)
-
 
 class TechnologyRecommendation(BaseModel):
     programming_languages: List[str] = Field(default_factory=list)
@@ -28,6 +26,22 @@ class TechnologyRecommendation(BaseModel):
     apis: List[str] = Field(default_factory=list)
     justification: Optional[str] = None
 
+    @field_validator(
+        "programming_languages",
+        "frameworks",
+        "database",
+        "ai_ml",
+        "tools",
+        "apis"
+    )
+    @classmethod
+    def clean_empty_values(cls, values):
+        invalid_values = {"none", "n/a", "na", "null", "", "[]"}
+        return [
+            value for value in values
+            if isinstance(value, str)
+            and value.strip().lower() not in invalid_values
+        ]
 
 class Milestone(BaseModel):
     week: Optional[int] = None
@@ -38,13 +52,11 @@ class Milestone(BaseModel):
     timeline: Optional[str] = None
     deliverables: List[str] = Field(default_factory=list)
 
-
 class Risk(BaseModel):
     risk: Optional[str] = None
     likelihood: Optional[str] = None
     impact: Optional[str] = None
     mitigation: Optional[str] = None
-
 
 class ProjectAnalysis(BaseModel):
     project_id: str
@@ -61,3 +73,17 @@ class MilestonePlan(BaseModel):
 
 class RiskAssessment(BaseModel):
     risks: List[Risk] = Field(default_factory=list)
+
+class ProgressEvaluation(BaseModel):
+    overall_assessment: Optional[str] = None
+    progress_score: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100
+    )
+    completed_weeks: List[int] = Field(default_factory=list)
+    delayed_weeks: List[int] = Field(default_factory=list)
+    current_status: Optional[str] = None
+    issues: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+    next_actions: List[str] = Field(default_factory=list)

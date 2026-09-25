@@ -5,7 +5,8 @@ from app.crew.agents import (
     feasibility_agent,
     technology_agent,
     planning_agent,
-    risk_agent
+    risk_agent,
+    progress_mentor_agent
 )
 
 from app.schemas.analysis_schema import (
@@ -13,7 +14,8 @@ from app.schemas.analysis_schema import (
     FeasibilityAnalysis,
     TechnologyRecommendation,
     MilestonePlan,
-    RiskAssessment
+    RiskAssessment,
+    ProgressEvaluation
 )
 
 
@@ -204,6 +206,27 @@ technology_task = Task(
         "the project description, the database field MUST be [].\n"
         "- If the project only requires image input, prediction, evaluation, "
         "and recommendations, do not recommend a database.\n"
+
+        "DECISION EXAMPLES:\n"
+        "- For a project that accepts leaf images, preprocesses them, "
+        "runs plant disease classification, evaluates the ML model, "
+        "and displays the prediction, the database field MUST be [].\n"
+        "- The project description must explicitly require persistent "
+        "application data storage before any database is recommended.\n"
+        "- Do NOT recommend PostgreSQL, MongoDB, SQLite, MySQL, or any "
+        "other database merely because the software could store data.\n"
+        "- OpenCV, TensorFlow, Keras, NumPy, Pandas, Scikit-image, "
+        "Matplotlib, and similar Python packages are libraries/tools, "
+        "NOT external APIs.\n"
+        "- If image processing can be performed locally with Python "
+        "libraries, do not list an external API.\n"
+        "- If no external web service is explicitly required, the APIs "
+        "field MUST be [].\n"
+        "- The API field MUST contain only external web services such as "
+        "Google Cloud Vision API, Azure Computer Vision API, or another "
+        "remote service explicitly required by the project.\n"
+        "- NEVER place OpenCV, TensorFlow, Keras, NumPy, Pandas, a local "
+        "Python module, a database, or a model file in the APIs field.\n"
 
         "IMPORTANT API RULE:\n"
         "- The APIs field must contain only actual external APIs required by "
@@ -399,4 +422,68 @@ risk_task = Task(
     context=[planning_task],
 
     output_pydantic=RiskAssessment
+)
+
+progress_evaluation_task = Task(
+    description="""
+    Evaluate the student's current project progress.
+
+    Project title:
+    {title}
+
+    Project description:
+    {description}
+
+    Domain:
+    {domain}
+
+    Planned milestones:
+    {milestones}
+
+    Student progress:
+    {progress}
+
+    Compare the student's actual progress with the planned milestones.
+
+    Requirements:
+    1. Calculate an overall progress score from 0 to 100.
+    2. Identify completed weeks.
+    3. Identify delayed or incomplete weeks.
+    4. Determine the current project status.
+    5. Identify specific issues affecting progress.
+    6. Provide practical recommendations.
+    7. Provide clear next actions for the student.
+    8. Base the evaluation only on the supplied project and progress data.
+    9. Do not invent completed work.
+
+    VERY IMPORTANT:
+    Return ONLY valid JSON.
+    Do not use Markdown.
+    Do not use ```json.
+    Do not add explanations before or after the JSON.
+
+    The JSON must have exactly these fields:
+    {
+        "overall_assessment": "string",
+        "progress_score": 0,
+        "completed_weeks": [],
+        "delayed_weeks": [],
+        "current_status": "string",
+        "issues": [],
+        "recommendations": [],
+        "next_actions": []
+    }
+
+    progress_score must be a number from 0 to 100.
+    completed_weeks and delayed_weeks must contain week numbers.
+    issues, recommendations, and next_actions must contain strings.
+    """,
+
+    expected_output=(
+        "Valid JSON only with the fields: overall_assessment, "
+        "progress_score, completed_weeks, delayed_weeks, "
+        "current_status, issues, recommendations, next_actions."
+    ),
+
+    agent=progress_mentor_agent
 )

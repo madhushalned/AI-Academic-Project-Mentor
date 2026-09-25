@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.skill_schema import SkillAssessmentCreate
+from app.schemas.skill_schema import SkillAssessmentCreate,SkillAssessmentUpdate
 from app.services.skill_service import (
     create_skill_assessment,
     get_skill_assessments,
-    get_skill_assessment_by_student_id
+    get_skill_assessment_by_student_id,
+    update_skill_assessment
 )
 
 
@@ -49,6 +50,27 @@ def get_all_skill_assessments():
 
     return assessments
 
+@router.put("/{student_id}")
+def update_single_skill_assessment(
+    student_id: str,
+    skill: SkillAssessmentUpdate
+):
+    """
+    Update skill assessment for one student.
+    """
+
+    result = update_skill_assessment(
+        student_id,
+        skill
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Skill assessment not found"
+        )
+
+    return result
 
 @router.get("/{student_id}")
 def get_single_skill_assessment(
