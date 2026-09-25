@@ -22,6 +22,19 @@ blueprint_validator = {
     }
 }
 
+history_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "version", "snapshot", "archived_at"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "version": {"bsonType": "int"},
+            "snapshot": {"bsonType": "object"},
+            "archived_at": {"bsonType": "date"}
+        }
+    }
+}
+
 student_validator = {
     "$jsonSchema": {
         "bsonType": "object",
@@ -68,12 +81,18 @@ def create_collections():
         print("Created 'blueprints' collection.")
     except CollectionInvalid:
         print("'blueprints' already exists — skipping.")
+    try:
+        db.create_collection("blueprint_history", validator=history_validator)
+        print("Created 'blueprint_history' collection.")
+    except CollectionInvalid:
+        print("'blueprint_history' already exists — skipping.")
 
     db.students.create_index("student_id", unique=True)
     db.skill_assessments.create_index("student_id")
     db.blueprints.create_index("student_id")
     db.skill_assessments.create_index([("student_id", 1), ("assessment_date", -1)])
     db.blueprints.create_index([("student_id", 1), ("status", 1)])
+    db.blueprint_history.create_index([("student_id", 1), ("version", 1)])
     print("Compound indexes created.")
     print("Indexes created.")
 
