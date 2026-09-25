@@ -1,7 +1,26 @@
-from app.crew.crew import project_planning_crew, progress_evaluation_crew
-from app.schemas.analysis_schema import ProjectAnalysis, ProgressEvaluation
-from app.services.project_service import update_project_ai_analysis,update_project_progress_evaluation
+from app.crew.crew import (
+    project_planning_crew,
+    progress_evaluation_crew,
+    weekly_mentor_crew
+)
+
+from app.schemas.analysis_schema import (
+    ProjectAnalysis,
+    ProgressEvaluation,
+    MentorRiskAnalysis
+)
+
+from app.services.project_service import (
+    update_project_ai_analysis,
+    update_project_progress_evaluation
+)
+
 import json
+
+
+# ============================================================
+# PROJECT ANALYSIS
+# ============================================================
 
 def analyze_project(project_data: dict):
 
@@ -57,14 +76,35 @@ def analyze_project(project_data: dict):
         return analysis_data
 
     except Exception as e:
-        print(f"AI project analysis failed: {e}")
+
+        print(
+            f"AI project analysis failed: {e}"
+        )
+
         raise
 
+
+# ============================================================
+# PROJECT PROGRESS EVALUATION
+# ============================================================
+
 def evaluate_project_progress(project_data: dict):
+
     try:
-        ai_analysis = project_data.get("ai_analysis", {})
-        milestones = ai_analysis.get("milestones", [])
-        progress = project_data.get("progress", [])
+        ai_analysis = project_data.get(
+            "ai_analysis",
+            {}
+        )
+
+        milestones = ai_analysis.get(
+            "milestones",
+            []
+        )
+
+        progress = project_data.get(
+            "progress",
+            []
+        )
 
         result = progress_evaluation_crew.kickoff(
             inputs={
@@ -77,11 +117,19 @@ def evaluate_project_progress(project_data: dict):
         )
 
         raw_output = result.tasks_output[0].raw
-        evaluation_data = json.loads(raw_output)
 
-        evaluation = ProgressEvaluation(**evaluation_data)
+        evaluation_data = json.loads(
+            raw_output
+        )
 
-        # Calculate progress score deterministically from all planned weeks.
+        evaluation = ProgressEvaluation(
+            **evaluation_data
+        )
+
+        # ----------------------------------------------------
+        # Calculate progress score deterministically
+        # ----------------------------------------------------
+
         progress_by_week = {
             item["week"]: item.get("progress", 0)
             for item in progress
@@ -94,19 +142,33 @@ def evaluate_project_progress(project_data: dict):
         ]
 
         if planned_weeks:
+
             total_progress = sum(
-                progress_by_week.get(week, 0)
+                progress_by_week.get(
+                    week,
+                    0
+                )
                 for week in planned_weeks
             )
-            calculated_score = total_progress / len(planned_weeks)
+
+            calculated_score = (
+                total_progress / len(planned_weeks)
+            )
+
         else:
+
             calculated_score = 0
 
-        # Override the LLM's numerical score with the deterministic value.
-        evaluation.progress_score = round(calculated_score, 2)
+        # Override the LLM numerical score
+        # with the deterministic value.
+        evaluation.progress_score = round(
+            calculated_score,
+            2
+        )
 
         evaluation_data = evaluation.model_dump()
 
+        # Save progress evaluation
         update_project_progress_evaluation(
             project_data["project_id"],
             evaluation_data
@@ -115,5 +177,235 @@ def evaluate_project_progress(project_data: dict):
         return evaluation_data
 
     except Exception as e:
-        print(f"AI progress evaluation failed: {e}")
+
+        print(
+            f"AI progress evaluation failed: {e}"
+        )
+
+        raise
+
+
+# ============================================================
+# WEEKLY MENTOR + RISK ANALYSIS
+# ============================================================
+
+def analyze_weekly_mentor_update(
+    project_data: dict,
+    checkin_data: dict
+):
+
+    try:
+
+        # ----------------------------------------------------
+        # Get existing AI-generated project plan
+        # ----------------------------------------------------
+
+        ai_analysis = project_data.get(
+            "ai_analysis",
+            {}
+        )
+
+        milestones = ai_analysis.get(
+            "milestones",
+            []
+        )
+
+        # ----------------------------------------------------
+        # Run Weekly Mentor CrewAI agent
+        # ----------------------------------------------------
+
+        result = weekly_mentor_crew.kickoff(
+            inputs={
+
+                "title": project_data.get(
+                    "title",
+                    ""
+                ),
+
+                "description": project_data.get(
+                    "description",
+                    ""
+                ),
+
+                "domain": project_data.get(
+                    "domain",
+                    ""
+                ),
+
+                "milestones": milestones,
+
+                "week": checkin_data.get(
+                    "week",
+                    1
+                ),
+
+                "completed_work": checkin_data.get(
+                    "completed_work",
+                    []
+                ),
+
+                "current_progress": checkin_data.get(
+                    "current_progress",
+                    0
+                ),
+
+                "blockers": checkin_data.get(
+                    "blockers",
+                    []
+                ),
+
+                "next_goals": checkin_data.get(
+                    "next_goals",
+                    []
+                ),
+
+                "remarks": checkin_data.get(
+                    "remarks"
+                )
+            }
+        )
+
+        # ----------------------------------------------------
+        # Get raw CrewAI output
+        # ----------------------------------------------------
+
+        raw_output = result.tasks_output[0].raw.strip()
+
+        # ----------------------------------------------------
+        # Remove Markdown JSON fences if the LLM adds them
+        # ----------------------------------------------------
+
+        if raw_output.startswith("```json"):
+
+            raw_output = raw_output[
+                len("```json"):
+            ].strip()
+
+        if raw_output.startswith("```"):
+
+            raw_output = raw_output[
+                len("```"):
+            ].strip()
+
+        if raw_output.endswith("```"):
+
+            raw_output = raw_output[
+                :-len("```")
+            ].strip()
+
+        # ----------------------------------------------------
+        # Extract only the JSON object
+        # ----------------------------------------------------
+
+        start = raw_output.find("{")
+        end = raw_output.rfind("}")
+
+        if start == -1 or end == -1:
+
+            raise ValueError(
+                "Weekly mentor did not return a valid JSON object."
+            )
+
+        raw_output = raw_output[
+            start:end + 1
+        ]
+
+        # ----------------------------------------------------
+        # Parse JSON
+        # ----------------------------------------------------
+
+        try:
+
+            evaluation_data = json.loads(
+                raw_output
+            )
+
+        except json.JSONDecodeError as json_error:
+
+            print(
+                "Weekly mentor returned invalid JSON."
+            )
+
+            print(
+                f"Raw output:\n{raw_output}"
+            )
+
+            raise ValueError(
+                f"Invalid JSON returned by weekly mentor: "
+                f"{json_error}"
+            )
+
+        # ----------------------------------------------------
+        # Normalize list fields
+        # ----------------------------------------------------
+
+        list_fields = [
+            "identified_risks",
+            "blockers",
+            "resolutions",
+            "recommendations",
+            "adjusted_plan",
+            "next_actions"
+        ]
+
+        for field in list_fields:
+
+            value = evaluation_data.get(
+                field
+            )
+
+            if isinstance(
+                value,
+                str
+            ):
+
+                evaluation_data[field] = [
+                    value
+                ]
+
+            elif value is None:
+
+                evaluation_data[field] = []
+
+        # ----------------------------------------------------
+        # Normalize plan adjustment flag
+        # ----------------------------------------------------
+
+        plan_adjustment = evaluation_data.get(
+            "plan_adjustment_required",
+            False
+        )
+
+        if isinstance(
+            plan_adjustment,
+            str
+        ):
+
+            evaluation_data[
+                "plan_adjustment_required"
+            ] = (
+                plan_adjustment.lower()
+                in ["true", "yes", "1"]
+            )
+
+        # ----------------------------------------------------
+        # Validate using Pydantic
+        # ----------------------------------------------------
+
+        evaluation = MentorRiskAnalysis(
+            **evaluation_data
+        )
+
+        # ----------------------------------------------------
+        # Return clean dictionary
+        # ----------------------------------------------------
+
+        return evaluation.model_dump()
+
+    except Exception as e:
+
+        print(
+            f"AI weekly mentor analysis failed: {e}"
+        )
+
         raise

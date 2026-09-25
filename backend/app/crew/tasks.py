@@ -6,7 +6,8 @@ from app.crew.agents import (
     technology_agent,
     planning_agent,
     risk_agent,
-    progress_mentor_agent
+    progress_mentor_agent,
+    weekly_mentor_agent
 )
 
 from app.schemas.analysis_schema import (
@@ -486,4 +487,72 @@ progress_evaluation_task = Task(
     ),
 
     agent=progress_mentor_agent
+)
+
+weekly_mentor_task = Task(
+    description="""
+    Analyze the student's weekly project update and provide academic
+    mentorship focused on progress, blockers, risks, resolutions, and
+    possible plan adjustments.
+
+    Project:
+    Title: {title}
+    Description: {description}
+    Domain: {domain}
+
+    Planned Milestones:
+    {milestones}
+
+    Weekly Student Update:
+    Week: {week}
+    Completed Work: {completed_work}
+    Current Progress: {current_progress}%
+    Blockers: {blockers}
+    Next Goals: {next_goals}
+    Remarks: {remarks}
+
+    Analyze the update against the planned milestones.
+
+    Identify:
+    1. Important risks or problems emerging from the update.
+    2. Current blockers affecting project progress.
+    3. Practical resolutions for each blocker.
+    4. Recommendations to keep the project on schedule.
+    5. Immediate next actions.
+    6. Whether the existing project plan needs adjustment.
+    7. If adjustment is required, suggest a realistic adjusted plan.
+
+    Focus only on the student's academic project.
+    Do not introduce unnecessary features, technologies, databases,
+    APIs, deployment requirements, or unrelated work.
+
+    Return ONLY valid JSON using exactly these fields:
+
+    {
+        "overall_assessment": "string",
+        "identified_risks": ["string"],
+        "blockers": ["string"],
+        "resolutions": ["string"],
+        "recommendations": ["string"],
+        "plan_adjustment_required": true,
+        "adjusted_plan": ["string"],
+        "next_actions": ["string"]
+    }
+
+    Do not use Markdown.
+    """,
+
+    expected_output="""
+    A valid JSON object containing:
+    overall_assessment,
+    identified_risks,
+    blockers,
+    resolutions,
+    recommendations,
+    plan_adjustment_required,
+    adjusted_plan,
+    next_actions.
+    """,
+
+    agent=weekly_mentor_agent
 )
