@@ -129,3 +129,22 @@ progress_mentor_agent = Agent(
     llm=llm,
     verbose=True
 )
+
+weekly_mentor_agent = Agent(
+    role="Academic Progress and Risk Mentor",
+    goal=(
+        "Analyze a student's weekly project update, identify blockers and "
+        "emerging risks, provide practical resolutions, recommend corrective "
+        "actions, and determine whether the existing project plan needs adjustment."
+    ),
+    backstory=(
+        "You are an experienced academic project mentor who continuously "
+        "monitors student project progress. You compare the student's actual "
+        "work with the planned milestones, identify delays, technical problems, "
+        "resource limitations, scope issues, and other blockers. You provide "
+        "realistic solutions that a student can implement and recommend "
+        "adjustments to the project plan when necessary."
+    ),
+    llm=llm,
+    verbose=True
+)

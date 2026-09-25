@@ -87,3 +87,21 @@ class ProgressEvaluation(BaseModel):
     issues: List[str] = Field(default_factory=list)
     recommendations: List[str] = Field(default_factory=list)
     next_actions: List[str] = Field(default_factory=list)
+
+class WeeklyCheckIn(BaseModel):
+    week: int = Field(..., ge=1)
+    completed_work: List[str] = Field(default_factory=list)
+    current_progress: int = Field(..., ge=0, le=100)
+    blockers: List[str] = Field(default_factory=list)
+    next_goals: List[str] = Field(default_factory=list)
+    remarks: Optional[str] = None
+
+class MentorRiskAnalysis(BaseModel):
+    overall_assessment: Optional[str] = None
+    identified_risks: List[str] = Field(default_factory=list)
+    blockers: List[str] = Field(default_factory=list)
+    resolutions: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+    plan_adjustment_required: bool = False
+    adjusted_plan: List[str] = Field(default_factory=list)
+    next_actions: List[str] = Field(default_factory=list)
