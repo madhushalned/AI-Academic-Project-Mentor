@@ -82,3 +82,11 @@ class GeneratedDocument(BaseModel):
     content: Optional[str] = None
     file_path: Optional[str] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProgressUpdate(BaseModel):
+    student_id: str
+    week_number: int
+    update_type: str
+    description: str
+    resolved: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
