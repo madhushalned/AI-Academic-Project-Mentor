@@ -67,3 +67,11 @@ class Blueprint(BaseModel):
     risk: Optional[RiskSection] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CheckIn(BaseModel):
+    student_id: str
+    week_number: int
+    student_message: str
+    mentor_response: Optional[str] = None
+    status: str = "on_track"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
