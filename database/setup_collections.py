@@ -50,6 +50,35 @@ checkin_validator = {
     }
 }
 
+document_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "document_type"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "document_type": {"bsonType": "string"},
+            "content": {"bsonType": ["string", "null"]},
+            "file_path": {"bsonType": ["string", "null"]},
+            "generated_at": {"bsonType": "date"}
+        }
+    }
+}
+
+progress_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "week_number", "update_type", "description"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "week_number": {"bsonType": "int"},
+            "update_type": {"bsonType": "string"},
+            "description": {"bsonType": "string"},
+            "resolved": {"bsonType": "bool"},
+            "created_at": {"bsonType": "date"}
+        }
+    }
+}
+
 student_validator = {
     "$jsonSchema": {
         "bsonType": "object",
@@ -106,6 +135,17 @@ def create_collections():
         print("Created 'check_ins' collection.")
     except CollectionInvalid:
         print("'check_ins' already exists — skipping.")
+    try:
+        db.create_collection("generated_documents", validator=document_validator)
+        print("Created 'generated_documents' collection.")
+    except CollectionInvalid:
+        print("'generated_documents' already exists — skipping.")
+
+    try:
+        db.create_collection("progress_updates", validator=progress_validator)
+        print("Created 'progress_updates' collection.")
+    except CollectionInvalid:
+        print("'progress_updates' already exists — skipping.")
 
     db.students.create_index("student_id", unique=True)
     db.skill_assessments.create_index("student_id")
@@ -114,6 +154,8 @@ def create_collections():
     db.blueprints.create_index([("student_id", 1), ("status", 1)])
     db.blueprint_history.create_index([("student_id", 1), ("version", 1)])
     db.check_ins.create_index([("student_id", 1), ("week_number", 1)])
+    db.generated_documents.create_index([("student_id", 1), ("document_type", 1)])
+    db.progress_updates.create_index([("student_id", 1), ("resolved", 1)])
     print("Compound indexes created.")
     print("Indexes created.")
 
