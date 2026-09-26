@@ -75,3 +75,10 @@ class CheckIn(BaseModel):
     mentor_response: Optional[str] = None
     status: str = "on_track"
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class GeneratedDocument(BaseModel):
+    student_id: str
+    document_type: str
+    content: Optional[str] = None
+    file_path: Optional[str] = None
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
