@@ -1,150 +1,80 @@
-import { useState } from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "./styles/integrated-pages.css";
 
-import DashboardLayout from "./components/DashboardLayout.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import SkillAssessment from "./pages/SkillAssessment.jsx";
-import MilestoneManagement from "./pages/MilestoneManagement.jsx";
-import TimelineManagement from "./pages/TimelineManagement.jsx";
-import StudentProfile from "./pages/StudentProfile.jsx";
-import PlaceholderPage from "./pages/PlaceholderPage.jsx";
+import Login from "./pages/login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import Dashboard from "./pages/dashboard";
+import MilestoneManagement from "./pages/MilestoneManagement";
+import TimelineManagement from "./pages/TimelineManagement";
+import SkillAssessment from "./pages/SkillAssessment";
+import StudentProfile from "./pages/StudentProfile";
 
-import Login from "./pages/login.jsx";
-import Signup from "./pages/Signup.jsx";
-import ForgotPassword from "./pages/ForgotPassword.jsx";
+import IntegratedLayout from "./components/IntegratedLayout";
 
-import "./App.css";
-
-const pageMeta = {
-  dashboard: {
-    title: "Dashboard",
-    subtitle: "Overview of your academic project progress",
-  },
-  "skill-assessment": {
-    title: "Skill Assessment",
-    subtitle: "Evaluate and track your technical proficiencies",
-  },
-  "student-profile": {
-    title: "Student Profile",
-    subtitle: "View and manage your student information",
-  },
-  milestones: {
-    title: "Milestone Management",
-    subtitle: "Plan, track, and update project milestones",
-  },
-  timeline: {
-    title: "Timeline Management",
-    subtitle: "Week-by-week project schedule and progress",
-  },
-  project: {
-    title: "Project",
-    subtitle: "Project details and configuration",
-  },
-  progress: {
-    title: "Progress",
-    subtitle: "Detailed progress analytics",
-  },
-  mentor: {
-    title: "AI Mentor",
-    subtitle: "AI-powered guidance and feedback",
-  },
-  reports: {
-    title: "Reports",
-    subtitle: "Generate and export project reports",
-  },
-  settings: {
-    title: "Settings",
-    subtitle: "Manage your account and preferences",
-  },
-};
-
-function DashboardApp() {
-  const [currentPage, setCurrentPage] = useState("dashboard");
-
-  const meta =
-    pageMeta[currentPage] || {
-      title: "AcadTracker",
-      subtitle: "",
-    };
-
-  const handleNavigate = (page) => {
-    setCurrentPage(page);
-  };
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case "dashboard":
-        return <Dashboard onNavigate={handleNavigate} />;
-
-      case "skill-assessment":
-        return <SkillAssessment />;
-
-      case "student-profile":
-        return <StudentProfile />;
-
-      case "milestones":
-        return <MilestoneManagement />;
-
-      case "timeline":
-        return <TimelineManagement onNavigate={handleNavigate} />;
-
-      case "project":
-      case "progress":
-      case "mentor":
-      case "reports":
-      case "settings":
-        return <PlaceholderPage title={meta.title} />;
-
-      default:
-        return <Dashboard onNavigate={handleNavigate} />;
-    }
-  };
-
-  return (
-    <DashboardLayout
-      currentPage={currentPage}
-      onNavigate={handleNavigate}
-      title={meta.title}
-      subtitle={meta.subtitle}
-    >
-      {renderPage()}
-    </DashboardLayout>
-  );
-}
-
-export default function App() {
+function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Authentication pages */}
-        <Route path="/" element={<Login />} />
+         <Route path="/" element={<Login />} />
+        {/* Login */}
         <Route path="/login" element={<Login />} />
+
+        {/* Signup */}
         <Route path="/signup" element={<Signup />} />
+
+        {/* Forgot Password */}
         <Route
           path="/forgot-password"
           element={<ForgotPassword />}
         />
 
-        {/* Application pages */}
-        <Route path="/dashboard" element={<DashboardApp />} />
-        <Route path="/student-profile" element={<DashboardApp />} />
-        <Route path="/skill-assessment" element={<DashboardApp />} />
-        <Route path="/milestones" element={<DashboardApp />} />
-        <Route path="/timeline" element={<DashboardApp />} />
-        <Route path="/project" element={<DashboardApp />} />
-        <Route path="/progress" element={<DashboardApp />} />
-        <Route path="/mentor" element={<DashboardApp />} />
-        <Route path="/reports" element={<DashboardApp />} />
-        <Route path="/settings" element={<DashboardApp />} />
+        {/* Dashboard */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        
+              <Route
+        path="/milestones"
+        element={
+          <IntegratedLayout>
+            <MilestoneManagement />
+          </IntegratedLayout>
+        }
+      />
 
-        {/* Unknown route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="/timeline"
+        element={
+          <IntegratedLayout>
+            <TimelineManagement />
+          </IntegratedLayout>
+        }
+      />
+
+      <Route
+        path="/skill-assessment"
+        element={
+          <IntegratedLayout>
+            <SkillAssessment />
+          </IntegratedLayout>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <IntegratedLayout>
+            <StudentProfile />
+          </IntegratedLayout>
+        }
+      />
+
       </Routes>
     </BrowserRouter>
   );
 }
+
+export default App;
+
+
+

@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Timeline from "../components/Timeline.jsx";
 import StatusBadge from "../components/StatusBadge.jsx";
 import Icon from "../components/Icon.jsx";
 import { getTimeline, getTimelineSummary, getMilestones } from "../services/api.js";
 
-export default function TimelineManagement({ onNavigate }) {
+export default function TimelineManagement() {
+  const navigate = useNavigate();
   const weeks = getTimeline();
   const summary = getTimelineSummary();
   const milestones = getMilestones();
@@ -14,7 +16,7 @@ export default function TimelineManagement({ onNavigate }) {
   const filtered = filter === "All" ? weeks : weeks.filter((w) => w.status === filter);
 
   const handleMilestoneClick = (name) => {
-    onNavigate("milestones");
+    navigate("/milestones");
   };
 
   return (
@@ -44,7 +46,7 @@ export default function TimelineManagement({ onNavigate }) {
         ))}
       </div>
 
-      <div className="timeline-gantt">
+      {/* <div className="timeline-gantt">
         <h3 className="timeline-gantt-title">Project Gantt Overview</h3>
         <div className="gantt-chart">
           {weeks.map((w) => (
@@ -61,7 +63,7 @@ export default function TimelineManagement({ onNavigate }) {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       <Timeline weeks={filtered} onMilestoneClick={handleMilestoneClick} />
 
@@ -69,7 +71,7 @@ export default function TimelineManagement({ onNavigate }) {
         <div className="panel-head"><h3>Linked Milestones</h3></div>
         <div className="milestone-mini-grid">
           {milestones.map((m) => (
-            <div key={m.id} className="milestone-mini" onClick={() => onNavigate("milestones")}>
+            <div key={m.id} className="milestone-mini" onClick={() => navigate("/milestones")}>
               <div className="milestone-mini-head">
                 <span className="milestone-mini-title">{m.title}</span>
                 <StatusBadge status={m.status} />
@@ -85,3 +87,5 @@ export default function TimelineManagement({ onNavigate }) {
     </div>
   );
 }
+
+
