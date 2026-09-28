@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../common/sidebar';
 import Header from '../common/header';
@@ -16,33 +16,113 @@ const Dashboard = () => {
   // =====================================================
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const [isProjectDetailOpen, setIsProjectDetailOpen] =
-    useState(false);
+  const [isProjectDetailOpen, setIsProjectDetailOpen] = useState(false);
 
   // =====================================================
   // PROJECT STATES
   // =====================================================
 
   const [projects, setProjects] = useState([]);
-
-  const [selectedProject, setSelectedProject] =
-    useState(null);
-
+  const [selectedProject, setSelectedProject] = useState(null);
   const [selectedAnalysisProject, setSelectedAnalysisProject] =
     useState(null);
-
-  const [projectProgress, setProjectProgress] =
-    useState([]);
+  const [projectProgress, setProjectProgress] = useState([]);
 
   // =====================================================
   // AI STATES
   // =====================================================
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEvaluatingProgress, setIsEvaluatingProgress] = useState(false);
 
-  const [isEvaluatingProgress, setIsEvaluatingProgress] =
-    useState(false);
+  // =====================================================
+  // PROGRESS STATES
+  // =====================================================
+
+  const [completingWeek, setCompletingWeek] = useState(null);
+
+  // =====================================================
+  // PREVENT DUPLICATE AI EVALUATION REQUESTS
+  // =====================================================
+
+  const progressEvaluationRunningRef = useRef(false);
+
+  // =====================================================
+  // CALCULATE OVERALL PROGRESS
+  // =====================================================
+  //
+  // Overall progress is based ONLY on completed weeks.
+  //
+  // Example:
+  // 3 completed weeks / 7 total weeks = 42.86%
+  //
+  // Each completed week = 100%
+  // Each incomplete week = 0%
+  //
+  // =====================================================
+
+  const calculateOverallProgress = (
+    progressList,
+    milestones = []
+  ) => {
+    const totalWeeks = milestones.length;
+
+    if (totalWeeks === 0) {
+      return 0;
+    }
+
+    const completedWeeks = progressList.filter(
+      (item) =>
+        String(item?.status || '').toLowerCase() === 'completed' ||
+        Number(item?.current_progress ?? item?.progress ?? 0) >= 100
+    ).length;
+
+    return Math.round(
+      (completedWeeks / totalWeeks) * 100
+    );
+  };
+
+  // =====================================================
+  // NORMALIZE PROGRESS DATA
+  // =====================================================
+
+  const normalizeProgress = (progressList = []) => {
+    if (!Array.isArray(progressList)) {
+      return [];
+    }
+
+    return progressList.map((item) => {
+      const currentProgress = Number(
+        item?.current_progress ??
+        item?.progress ??
+        0
+      );
+
+      const isCompleted =
+        String(item?.status || '').toLowerCase() ===
+          'completed' ||
+        currentProgress >= 100;
+
+      return {
+        ...item,
+
+        week: Number(item?.week),
+
+        status: isCompleted
+          ? 'Completed'
+          : 'Not Started',
+
+        current_progress: isCompleted
+          ? 100
+          : 0,
+
+        // Keep old field temporarily for backend compatibility
+        progress: isCompleted
+          ? 100
+          : 0
+      };
+    });
+  };
 
   // =====================================================
   // LOAD PROJECTS
@@ -56,7 +136,9 @@ const Dashboard = () => {
         );
 
         if (!student) {
-          console.warn('No logged-in student found.');
+          console.warn(
+            'No logged-in student found.'
+          );
           return;
         }
 
@@ -82,72 +164,73 @@ const Dashboard = () => {
           return;
         }
 
-        // -------------------------------------------------
-        // Only show projects belonging to logged-in student
-        // -------------------------------------------------
-
         const studentProjects = data.filter(
           (project) =>
             String(project.student_id) ===
             String(student.student_id)
         );
 
-        // -------------------------------------------------
-        // Convert backend format to frontend format
-        // -------------------------------------------------
-
         const formattedProjects =
-          studentProjects.map((project) => ({
-            id: project.project_id,
+          studentProjects.map(
+            (project) => {
+              const normalizedProgress =
+                normalizeProgress(
+                  Array.isArray(project.progress)
+                    ? project.progress
+                    : []
+                );
 
-            project_id: project.project_id,
+              return {
+                id: project.project_id,
+                project_id: project.project_id,
+                student_id: project.student_id,
 
-            student_id: project.student_id,
+                title: project.title || '',
+                description:
+                  project.description || '',
+                domain: project.domain || '',
 
-            title: project.title || '',
+                expectedOutcome:
+                  project.expectedOutcome ||
+                  project.expected_outcome ||
+                  '',
 
-            description:
-              project.description || '',
+                status:
+                  project.status ===
+                  'not_started'
+                    ? 'Under Analysis'
+                    : project.status ||
+                      'Under Analysis',
 
-            domain:
-              project.domain || '',
+                ai_analysis:
+                  project.ai_analysis || null,
 
-            expectedOutcome:
-              project.expectedOutcome ||
-              project.expected_outcome ||
-              '',
+                progress:
+                  normalizedProgress,
 
-            status:
-              project.status === 'not_started'
-                ? 'Under Analysis'
-                : project.status ||
-                  'Under Analysis',
+                // Maximum possible progress
+                total_progress: 100,
 
-            ai_analysis:
-              project.ai_analysis || null,
+                progress_evaluation:
+                  project.progress_evaluation ||
+                  null,
 
-            progress:
-              Array.isArray(project.progress)
-                ? project.progress
-                : [],
-
-            progress_evaluation:
-              project.progress_evaluation ||
-              null,
-
-            dateText: project.created_at
-              ? `Submitted on ${new Date(
+                dateText:
                   project.created_at
-                ).toLocaleDateString(
-                  'en-GB',
-                  {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                  }
-                )}`
-              : 'Submitted'
-          }));
+                    ? `Submitted on ${new Date(
+                        project.created_at
+                      ).toLocaleDateString(
+                        'en-GB',
+                        {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        }
+                      )}`
+                    : 'Submitted'
+              };
+            }
+          );
 
         setProjects(formattedProjects);
 
@@ -174,7 +257,9 @@ const Dashboard = () => {
     localStorage.removeItem('student');
     sessionStorage.clear();
 
-    console.log('Logging out user...');
+    console.log(
+      'Logging out user...'
+    );
 
     navigate('/login');
   };
@@ -183,12 +268,10 @@ const Dashboard = () => {
   // SUBMIT PROJECT IDEA
   // =====================================================
 
-  const handleIdeaSubmit = async (formData) => {
+  const handleIdeaSubmit = async (
+    formData
+  ) => {
     try {
-      // -------------------------------------------------
-      // 1. Get logged-in student
-      // -------------------------------------------------
-
       const student = JSON.parse(
         localStorage.getItem('student')
       );
@@ -198,10 +281,6 @@ const Dashboard = () => {
           'Please log in again.'
         );
       }
-
-      // -------------------------------------------------
-      // 2. Get form data
-      // -------------------------------------------------
 
       const title =
         formData.title?.trim() || '';
@@ -214,10 +293,6 @@ const Dashboard = () => {
 
       const expectedOutcome =
         formData.expectedOutcome?.trim() || '';
-
-      // -------------------------------------------------
-      // 3. Validate required fields
-      // -------------------------------------------------
 
       if (!title) {
         throw new Error(
@@ -243,31 +318,15 @@ const Dashboard = () => {
         );
       }
 
-      // -------------------------------------------------
-      // 4. Create project ID
-      // -------------------------------------------------
-
-      const projectId =
-        `proj-${Date.now()}`;
-
-      // -------------------------------------------------
-      // 5. Prepare project data
-      // -------------------------------------------------
+      const projectId = `proj-${Date.now()}`;
 
       const projectData = {
         project_id: projectId,
-
-        student_id:
-          student.student_id,
-
+        student_id: student.student_id,
         title,
-
         description,
-
         domain,
-
         expectedOutcome,
-
         status: 'not_started'
       };
 
@@ -276,25 +335,20 @@ const Dashboard = () => {
         projectData
       );
 
-      // -------------------------------------------------
-      // 6. Save project to backend
-      // -------------------------------------------------
-
-      const projectResponse = await fetch(
-        `${API_BASE_URL}/projects/`,
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json'
-          },
-
-          body: JSON.stringify(
-            projectData
-          )
-        }
-      );
+      const projectResponse =
+        await fetch(
+          `${API_BASE_URL}/projects/`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify(
+              projectData
+            )
+          }
+        );
 
       const projectResult =
         await projectResponse.json();
@@ -318,28 +372,10 @@ const Dashboard = () => {
         throw new Error(message);
       }
 
-      console.log(
-        'PROJECT CREATED:',
-        projectResult
-      );
-
-      // -------------------------------------------------
-      // 7. Get actual project ID from backend
-      // -------------------------------------------------
-
       const createdProjectId =
         projectResult.project_id ||
         projectResult.id ||
         projectId;
-
-      console.log(
-        'CREATED PROJECT ID:',
-        createdProjectId
-      );
-
-      // -------------------------------------------------
-      // 8. Create temporary frontend project
-      // -------------------------------------------------
 
       const today =
         new Date().toLocaleDateString(
@@ -353,36 +389,26 @@ const Dashboard = () => {
 
       const newProject = {
         id: createdProjectId,
-
-        project_id:
-          createdProjectId,
-
+        project_id: createdProjectId,
         student_id:
           student.student_id,
 
         title,
-
         description,
-
         domain,
-
         expectedOutcome,
 
         status: 'Under Analysis',
 
         ai_analysis: null,
-
         progress: [],
+
+        total_progress: 100,
 
         progress_evaluation: null,
 
-        dateText:
-          `Submitted on ${today}`
+        dateText: `Submitted on ${today}`
       };
-
-      // -------------------------------------------------
-      // 9. Immediately show project on dashboard
-      // -------------------------------------------------
 
       setProjects(
         (previousProjects) => [
@@ -397,9 +423,9 @@ const Dashboard = () => {
 
       setIsModalOpen(false);
 
-      // -------------------------------------------------
-      // 10. START AI ANALYSIS AUTOMATICALLY
-      // -------------------------------------------------
+      // =================================================
+      // AUTOMATIC AI ANALYSIS
+      // =================================================
 
       setIsAnalyzing(true);
 
@@ -408,25 +434,20 @@ const Dashboard = () => {
         createdProjectId
       );
 
-      const aiResponse = await fetch(
-        `${API_BASE_URL}/projects/${createdProjectId}/analyze`,
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json'
+      const aiResponse =
+        await fetch(
+          `${API_BASE_URL}/projects/${createdProjectId}/analyze`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json'
+            }
           }
-        }
-      );
+        );
 
       const aiData =
         await aiResponse.json();
-
-      console.log(
-        'AI ANALYSIS RESPONSE:',
-        aiData
-      );
 
       if (!aiResponse.ok) {
         console.error(
@@ -449,23 +470,10 @@ const Dashboard = () => {
         );
       }
 
-      // -------------------------------------------------
-      // 11. Extract AI analysis
-      // -------------------------------------------------
-
       const analysis =
         aiData.analysis ||
         aiData.ai_analysis ||
         aiData;
-
-      console.log(
-        'AI ANALYSIS RESULT:',
-        analysis
-      );
-
-      // -------------------------------------------------
-      // 12. Immediately update dashboard
-      // -------------------------------------------------
 
       const completedProject = {
         ...newProject,
@@ -492,9 +500,9 @@ const Dashboard = () => {
           )
       );
 
-      // -------------------------------------------------
-      // 13. Reload project from backend
-      // -------------------------------------------------
+      // =================================================
+      // RELOAD PROJECT
+      // =================================================
 
       try {
         const latestResponse =
@@ -506,10 +514,14 @@ const Dashboard = () => {
           await latestResponse.json();
 
         if (latestResponse.ok) {
-          console.log(
-            'LATEST PROJECT FROM BACKEND:',
-            latestProject
-          );
+          const backendProgress =
+            normalizeProgress(
+              Array.isArray(
+                latestProject.progress
+              )
+                ? latestProject.progress
+                : []
+            );
 
           const backendProject = {
             ...completedProject,
@@ -544,21 +556,16 @@ const Dashboard = () => {
               expectedOutcome,
 
             status:
-              latestProject.status ===
-              'Analysis Completed'
-                ? 'Analysis Completed'
-                : 'Analysis Completed',
+              'Analysis Completed',
 
             ai_analysis:
               latestProject.ai_analysis ||
               analysis,
 
             progress:
-              Array.isArray(
-                latestProject.progress
-              )
-                ? latestProject.progress
-                : [],
+              backendProgress,
+
+            total_progress: 100,
 
             progress_evaluation:
               latestProject.progress_evaluation ||
@@ -580,28 +587,20 @@ const Dashboard = () => {
               )
           );
         }
-      } catch (refreshError) {
+      } catch (
+        refreshError
+      ) {
         console.warn(
           'Could not refresh project after analysis:',
           refreshError
         );
       }
 
-      // -------------------------------------------------
-      // 14. Analysis completed
-      // -------------------------------------------------
-
       setIsAnalyzing(false);
-
-      console.log(
-        'PROJECT ANALYSIS COMPLETED:',
-        createdProjectId
-      );
 
       alert(
         'Project submitted and AI analysis completed successfully!'
       );
-
     } catch (error) {
       console.error(
         'PROJECT / AI INTEGRATION ERROR:',
@@ -612,7 +611,7 @@ const Dashboard = () => {
 
       alert(
         error?.message ||
-        'Unable to connect to the server.'
+          'Unable to connect to the server.'
       );
 
       throw error;
@@ -623,8 +622,12 @@ const Dashboard = () => {
   // OPEN AI ANALYSIS
   // =====================================================
 
-  const handleProjectOpen = (project) => {
-    setSelectedAnalysisProject(project);
+  const handleProjectOpen = (
+    project
+  ) => {
+    setSelectedAnalysisProject(
+      project
+    );
   };
 
   // =====================================================
@@ -632,7 +635,9 @@ const Dashboard = () => {
   // =====================================================
 
   const handleProjectClose = () => {
-    setSelectedAnalysisProject(null);
+    setSelectedAnalysisProject(
+      null
+    );
   };
 
   // =====================================================
@@ -643,6 +648,10 @@ const Dashboard = () => {
     project
   ) => {
     try {
+      if (!project?.project_id) {
+        return [];
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/projects/${project.project_id}/progress`
       );
@@ -659,9 +668,19 @@ const Dashboard = () => {
         return [];
       }
 
-      return Array.isArray(data.progress)
-        ? data.progress
-        : [];
+      let progressData = [];
+
+      if (Array.isArray(data)) {
+        progressData = data;
+      } else if (
+        Array.isArray(data?.progress)
+      ) {
+        progressData = data.progress;
+      }
+
+      return normalizeProgress(
+        progressData
+      );
     } catch (error) {
       console.error(
         'PROGRESS FETCH ERROR:',
@@ -676,189 +695,156 @@ const Dashboard = () => {
   // LOAD PROJECT MILESTONES
   // =====================================================
 
-  const loadProjectMilestones = async (
-    project
-  ) => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/projects/${project.project_id}/milestones`
-      );
+  const loadProjectMilestones =
+    async (project) => {
+      try {
+        if (!project?.project_id) {
+          return [];
+        }
 
-      const data =
-        await response.json();
+        const response =
+          await fetch(
+            `${API_BASE_URL}/projects/${project.project_id}/milestones`
+          );
 
-      if (!response.ok) {
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          console.error(
+            'MILESTONE LOAD ERROR:',
+            data
+          );
+
+          return [];
+        }
+
+        if (Array.isArray(data)) {
+          return data;
+        }
+
+        return Array.isArray(
+          data?.milestones
+        )
+          ? data.milestones
+          : [];
+      } catch (error) {
         console.error(
-          'MILESTONE LOAD ERROR:',
-          data
+          'MILESTONE FETCH ERROR:',
+          error
         );
 
         return [];
       }
-
-      return Array.isArray(data.milestones)
-        ? data.milestones
-        : [];
-    } catch (error) {
-      console.error(
-        'MILESTONE FETCH ERROR:',
-        error
-      );
-
-      return [];
-    }
-  };
+    };
 
   // =====================================================
   // OPEN PROJECT DETAILS
   // =====================================================
 
-  const handleProjectDetailsOpen = async (
-    project
-  ) => {
-    console.log(
-      'OPENING PROJECT DETAILS:',
-      project.project_id
-    );
+  const handleProjectDetailsOpen =
+    async (project) => {
+      console.log(
+        'OPENING PROJECT DETAILS:',
+        project.project_id
+      );
 
-    const progress =
-      await loadProjectProgress(project);
+      const progress =
+        await loadProjectProgress(
+          project
+        );
 
-    const milestones =
-      await loadProjectMilestones(project);
+      const milestones =
+        await loadProjectMilestones(
+          project
+        );
 
-    console.log(
-      'LOADED MILESTONES:',
-      milestones
-    );
-
-    const projectWithProgress = {
-      ...project,
-
-      progress,
-
-      ai_analysis: {
-        ...(project.ai_analysis || {}),
+      console.log(
+        'LOADED MILESTONES:',
         milestones
-      }
+      );
+
+      const overallProgress =
+        calculateOverallProgress(
+          progress,
+          milestones
+        );
+
+      const projectWithProgress = {
+        ...project,
+
+        progress,
+
+        total_progress: 100,
+
+        overall_progress:
+          overallProgress,
+
+        ai_analysis: {
+          ...(project.ai_analysis ||
+            {}),
+          milestones
+        }
+      };
+
+      setSelectedProject(
+        projectWithProgress
+      );
+
+      setProjectProgress(
+        progress
+      );
+
+      setIsProjectDetailOpen(
+        true
+      );
     };
-
-    setSelectedProject(
-      projectWithProgress
-    );
-
-    setProjectProgress(
-      progress
-    );
-
-    setIsProjectDetailOpen(
-      true
-    );
-  };
 
   // =====================================================
   // CLOSE PROJECT DETAILS
   // =====================================================
 
-  const handleProjectDetailsClose = () => {
-    setIsProjectDetailOpen(false);
+  const handleProjectDetailsClose =
+    () => {
+      setIsProjectDetailOpen(false);
+      setSelectedProject(null);
+      setProjectProgress([]);
 
-    setSelectedProject(null);
-
-    setProjectProgress([]);
-  };
+      setCompletingWeek(null);
+    };
 
   // =====================================================
-  // EVALUATE PROJECT PROGRESS WITH AI
+  // UPDATE PROJECT PROGRESS IN UI
   // =====================================================
 
-  const handleProgressEvaluation = async () => {
-    if (!selectedProject) {
-      alert(
-        'Please select a project first.'
-      );
-      return;
-    }
-
-    try {
-      setIsEvaluatingProgress(true);
-
-      console.log(
-        'STARTING PROGRESS EVALUATION:',
-        selectedProject.project_id
-      );
-
-      const response = await fetch(
-        `${API_BASE_URL}/ai/evaluate-progress`,
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json'
-          },
-
-          body: JSON.stringify({
-            project_id:
-              selectedProject.project_id
-          })
-        }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        console.error(
-          'PROGRESS EVALUATION ERROR:',
-          data
+  const updateProjectProgressState =
+    (
+      projectId,
+      latestProgress,
+      milestones = []
+    ) => {
+      const normalizedProgress =
+        normalizeProgress(
+          latestProgress
         );
 
-        alert(
-          typeof data.detail === 'string'
-            ? data.detail
-            : JSON.stringify(
-                data.detail,
-                null,
-                2
-              )
-        );
-
-        return;
-      }
-
-      console.log(
-        'PROGRESS EVALUATION RESULT:',
-        data
-      );
-
-      // -------------------------------------------------
-      // Reload latest progress
-      // -------------------------------------------------
-
-      const latestProgress =
-        await loadProjectProgress(
-          selectedProject
+      const overallProgress =
+        calculateOverallProgress(
+          normalizedProgress,
+          milestones
         );
 
       setProjectProgress(
-        latestProgress
+        normalizedProgress
       );
-
-      // -------------------------------------------------
-      // Get evaluation result
-      // -------------------------------------------------
-
-      const evaluation =
-        data.evaluation || {};
-
-      // -------------------------------------------------
-      // Update opened project
-      // -------------------------------------------------
 
       setSelectedProject(
         (previousProject) => {
-          if (!previousProject) {
+          if (
+            !previousProject ||
+            previousProject.project_id !==
+              projectId
+          ) {
             return previousProject;
           }
 
@@ -866,72 +852,637 @@ const Dashboard = () => {
             ...previousProject,
 
             progress:
-              latestProgress,
+              normalizedProgress,
 
-            progress_evaluation:
-              evaluation
+            total_progress: 100,
+
+            overall_progress:
+              overallProgress
           };
         }
       );
-
-      // -------------------------------------------------
-      // Update project list
-      // -------------------------------------------------
 
       setProjects(
         (previousProjects) =>
           previousProjects.map(
             (project) =>
               project.project_id ===
-              selectedProject.project_id
+              projectId
                 ? {
                     ...project,
 
                     progress:
-                      latestProgress,
+                      normalizedProgress,
 
-                    progress_evaluation:
-                      evaluation
+                    total_progress: 100
                   }
                 : project
           )
       );
+    };
 
-      console.log(
-        'PROGRESS EVALUATION SAVED TO UI:',
-        evaluation
+  // =====================================================
+  // EVALUATE PROJECT PROGRESS WITH AI
+  // =====================================================
+  //
+  // IMPORTANT:
+  // This function is NOT called while editing progress.
+  //
+  // It is called ONLY after a week is completed.
+  //
+  // =====================================================
+
+  const handleProgressEvaluation =
+    async (
+      projectId = null
+    ) => {
+      const targetProjectId =
+        projectId ||
+        selectedProject?.project_id;
+
+      if (!targetProjectId) {
+        console.error(
+          'No project ID available for evaluation.'
+        );
+        return null;
+      }
+
+      if (
+        progressEvaluationRunningRef.current
+      ) {
+        console.log(
+          'AI progress evaluation is already running. Skipping duplicate request.'
+        );
+
+        return null;
+      }
+
+      progressEvaluationRunningRef.current =
+        true;
+
+      setIsEvaluatingProgress(
+        true
       );
 
-      alert(
-        'Project progress evaluated successfully!'
-      );
+      try {
+        console.log(
+          'STARTING PROGRESS EVALUATION:',
+          targetProjectId
+        );
 
-    } catch (error) {
-      console.error(
-        'PROGRESS EVALUATION FETCH ERROR:',
-        error
-      );
+        const response =
+          await fetch(
+            `${API_BASE_URL}/ai/evaluate-progress`,
+            {
+              method: 'POST',
 
-      alert(
-        'Unable to connect to the progress evaluation service.'
-      );
+              headers: {
+                'Content-Type':
+                  'application/json'
+              },
 
-    } finally {
-      setIsEvaluatingProgress(false);
-    }
-  };
+              body: JSON.stringify({
+                project_id:
+                  targetProjectId
+              })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          console.error(
+            'PROGRESS EVALUATION ERROR:',
+            data
+          );
+
+          const message =
+            typeof data.detail ===
+            'string'
+              ? data.detail
+              : JSON.stringify(
+                  data.detail,
+                  null,
+                  2
+                );
+
+          throw new Error(
+            message
+          );
+        }
+
+        console.log(
+          'PROGRESS EVALUATION RESULT:',
+          data
+        );
+
+        // =================================================
+        // GET FRESH PROJECT PROGRESS
+        // =================================================
+
+        let latestProgress =
+          await loadProjectProgress(
+            selectedProject
+          );
+
+        // =================================================
+        // GET MILESTONES
+        // =================================================
+
+        let latestMilestones =
+          selectedProject?.ai_analysis
+            ?.milestones || [];
+
+        if (
+          latestMilestones.length ===
+          0
+        ) {
+          latestMilestones =
+            await loadProjectMilestones(
+              selectedProject
+            );
+        }
+
+        // =================================================
+        // CALCULATE OVERALL PROGRESS
+        // =================================================
+
+        const overallProgress =
+          calculateOverallProgress(
+            latestProgress,
+            latestMilestones
+          );
+
+        const evaluation =
+          data.evaluation || {};
+
+        /*
+         * The overall progress shown in the UI
+         * is based ONLY on completed weeks.
+         *
+         * Do not calculate it from partial
+         * weekly percentages.
+         */
+
+        const updatedEvaluation = {
+          ...evaluation,
+
+          progress_score:
+            overallProgress,
+
+          completed_weeks:
+            latestProgress.filter(
+              (item) =>
+                String(
+                  item?.status || ''
+                ).toLowerCase() ===
+                  'completed' ||
+                Number(
+                  item?.current_progress ??
+                    item?.progress ??
+                    0
+                ) >= 100
+            ).length
+        };
+
+        // =================================================
+        // UPDATE PROGRESS
+        // =================================================
+
+        setProjectProgress(
+          latestProgress
+        );
+
+        // =================================================
+        // UPDATE SELECTED PROJECT
+        // =================================================
+
+        setSelectedProject(
+          (previousProject) => {
+            if (
+              !previousProject ||
+              previousProject.project_id !==
+                targetProjectId
+            ) {
+              return previousProject;
+            }
+
+            return {
+              ...previousProject,
+
+              progress:
+                latestProgress,
+
+              total_progress: 100,
+
+              overall_progress:
+                overallProgress,
+
+              progress_evaluation:
+                updatedEvaluation
+            };
+          }
+        );
+
+        // =================================================
+        // UPDATE PROJECT LIST
+        // =================================================
+
+        setProjects(
+          (previousProjects) =>
+            previousProjects.map(
+              (project) =>
+                project.project_id ===
+                targetProjectId
+                  ? {
+                      ...project,
+
+                      progress:
+                        latestProgress,
+
+                      total_progress: 100,
+
+                      progress_evaluation:
+                        updatedEvaluation
+                    }
+                  : project
+            )
+        );
+
+        console.log(
+          'OVERALL PROGRESS:',
+          overallProgress
+        );
+
+        console.log(
+          'NEW AI EVALUATION SAVED TO UI:',
+          updatedEvaluation
+        );
+
+        return updatedEvaluation;
+      } catch (error) {
+        console.error(
+          'PROGRESS EVALUATION ERROR:',
+          error
+        );
+
+        if (
+          String(
+            error?.message || ''
+          )
+            .toLowerCase()
+            .includes(
+              'executor is already running'
+            )
+        ) {
+          console.warn(
+            'CrewAI executor is already running. Duplicate evaluation was prevented.'
+          );
+
+          return null;
+        }
+
+        alert(
+          error?.message ||
+            'Unable to connect to the progress evaluation service.'
+        );
+
+        return null;
+      } finally {
+        progressEvaluationRunningRef.current =
+          false;
+
+        setIsEvaluatingProgress(
+          false
+        );
+      }
+    };
+
+  // =====================================================
+  // MARK WEEK COMPLETE
+  // =====================================================
+  //
+  // This is now the ONLY way to update weekly progress.
+  //
+  // A completed week:
+  //
+  // current_progress = 100
+  // status = Completed
+  //
+  // No remarks.
+  // No Save Progress.
+  // No partial progress.
+  //
+  // =====================================================
+
+  const handleMarkWeekComplete =
+    async (week) => {
+      if (!selectedProject) {
+        alert(
+          'Please select a project first.'
+        );
+        return false;
+      }
+
+      const numericWeek =
+        Number(week);
+
+      if (
+        Number.isNaN(
+          numericWeek
+        ) ||
+        numericWeek < 1
+      ) {
+        alert(
+          'Invalid week number.'
+        );
+        return false;
+      }
+
+      const projectId =
+        selectedProject.project_id;
+
+      try {
+        setCompletingWeek(
+          numericWeek
+        );
+
+        // =================================================
+        // GET CURRENT SERVER PROGRESS
+        // =================================================
+
+        const currentProgress =
+          await loadProjectProgress(
+            selectedProject
+          );
+
+        const existingWeek =
+          currentProgress.find(
+            (item) =>
+              Number(item?.week) ===
+              numericWeek
+          );
+
+        // =================================================
+        // ALREADY COMPLETED
+        // =================================================
+
+        if (
+          existingWeek &&
+          (
+            Number(
+              existingWeek?.current_progress ??
+                existingWeek?.progress ??
+                0
+            ) >= 100 ||
+            String(
+              existingWeek?.status ||
+              ''
+            ).toLowerCase() ===
+              'completed'
+          )
+        ) {
+          console.log(
+            `Week ${numericWeek} is already completed.`
+          );
+
+          updateProjectProgressState(
+            projectId,
+            currentProgress,
+            selectedProject?.ai_analysis
+              ?.milestones || []
+          );
+
+          return true;
+        }
+
+        // =================================================
+        // CREATE COMPLETED WEEK
+        // =================================================
+
+        const completedProgress = {
+          week: numericWeek,
+
+          status: 'Completed',
+
+          current_progress: 100,
+
+          // Keep this temporarily for backend
+          // compatibility if required.
+          progress: 100
+        };
+
+        console.log(
+          'MARKING WEEK COMPLETE:',
+          completedProgress
+        );
+
+        // =================================================
+        // SAVE COMPLETED WEEK
+        // =================================================
+
+        const response =
+          await fetch(
+            `${API_BASE_URL}/projects/${projectId}/progress`,
+            {
+              method: 'PUT',
+
+              headers: {
+                'Content-Type':
+                  'application/json'
+              },
+
+              body: JSON.stringify(
+                completedProgress
+              )
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          console.error(
+            'MARK WEEK COMPLETE ERROR:',
+            data
+          );
+
+          const message =
+            typeof data.detail ===
+            'string'
+              ? data.detail
+              : JSON.stringify(
+                  data.detail,
+                  null,
+                  2
+                );
+
+          throw new Error(
+            message
+          );
+        }
+
+        console.log(
+          'WEEK COMPLETED:',
+          data
+        );
+
+        // =================================================
+        // GET FRESH PROGRESS
+        // =================================================
+
+        const latestProgress =
+          await loadProjectProgress(
+            selectedProject
+          );
+
+        console.log(
+          'LATEST PROGRESS AFTER COMPLETION:',
+          latestProgress
+        );
+
+        // =================================================
+        // GET MILESTONES
+        // =================================================
+
+        let milestones =
+          selectedProject?.ai_analysis
+            ?.milestones || [];
+
+        if (
+          milestones.length === 0
+        ) {
+          milestones =
+            await loadProjectMilestones(
+              selectedProject
+            );
+        }
+
+        // =================================================
+        // CALCULATE OVERALL PROGRESS
+        // =================================================
+
+        const overallProgress =
+          calculateOverallProgress(
+            latestProgress,
+            milestones
+          );
+
+        console.log(
+          'COMPLETED WEEKS:',
+          latestProgress.filter(
+            (item) =>
+              String(
+                item?.status || ''
+              ).toLowerCase() ===
+                'completed' ||
+              Number(
+                item?.current_progress ??
+                  item?.progress ??
+                  0
+              ) >= 100
+          ).length
+        );
+
+        console.log(
+          'TOTAL WEEKS:',
+          milestones.length
+        );
+
+        console.log(
+          'OVERALL PROGRESS:',
+          `${overallProgress}%`
+        );
+
+        // =================================================
+        // UPDATE UI IMMEDIATELY
+        // =================================================
+
+        updateProjectProgressState(
+          projectId,
+          latestProgress,
+          milestones
+        );
+
+        setSelectedProject(
+          (previousProject) => {
+            if (
+              !previousProject ||
+              previousProject.project_id !==
+                projectId
+            ) {
+              return previousProject;
+            }
+
+            return {
+              ...previousProject,
+
+              progress:
+                latestProgress,
+
+              total_progress: 100,
+
+              overall_progress:
+                overallProgress
+            };
+          }
+        );
+
+        // =================================================
+        // AUTOMATIC AI EVALUATION
+        // =================================================
+
+        console.log(
+          `STARTING AUTOMATIC AI EVALUATION AFTER WEEK ${numericWeek}`
+        );
+
+        const evaluation =
+          await handleProgressEvaluation(
+            projectId
+          );
+
+        console.log(
+          'AUTOMATIC AI EVALUATION COMPLETED:',
+          evaluation
+        );
+
+        alert(
+          `Week ${numericWeek} completed successfully. Overall progress: ${overallProgress}%.`
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          'MARK WEEK COMPLETE ERROR:',
+          error
+        );
+
+        alert(
+          error?.message ||
+            'Unable to mark the week as completed.'
+        );
+
+        return false;
+      } finally {
+        setCompletingWeek(
+          null
+        );
+      }
+    };
 
   // =====================================================
   // STATUS BADGE
   // =====================================================
 
-  const getBadgeStyle = (status) => {
+  const getBadgeStyle = (
+    status
+  ) => {
     switch (status) {
       case 'Analysis Completed':
         return {
           backgroundColor:
             '#dcfce7',
-
           color: '#166534'
         };
 
@@ -939,7 +1490,6 @@ const Dashboard = () => {
         return {
           backgroundColor:
             '#dbeafe',
-
           color: '#1d4ed8'
         };
 
@@ -947,7 +1497,6 @@ const Dashboard = () => {
         return {
           backgroundColor:
             '#fef3c7',
-
           color: '#92400e'
         };
 
@@ -955,7 +1504,6 @@ const Dashboard = () => {
         return {
           backgroundColor:
             '#f1f5f9',
-
           color: '#475569'
         };
 
@@ -963,7 +1511,6 @@ const Dashboard = () => {
         return {
           backgroundColor:
             '#fee2e2',
-
           color: '#b91c1c'
         };
 
@@ -971,7 +1518,6 @@ const Dashboard = () => {
         return {
           backgroundColor:
             '#f1f5f9',
-
           color: '#475569'
         };
     }
@@ -984,8 +1530,6 @@ const Dashboard = () => {
   return (
     <div style={styles.page}>
 
-      {/* SIDEBAR */}
-
       <Sidebar
         onLogout={handleLogout}
       />
@@ -993,8 +1537,6 @@ const Dashboard = () => {
       <div
         style={styles.mainContent}
       >
-
-        {/* HEADER */}
 
         <Header
           user={{
@@ -1011,8 +1553,6 @@ const Dashboard = () => {
           style={styles.content}
         >
 
-          {/* PAGE HEADER */}
-
           <div
             style={styles.pageHeader}
           >
@@ -1026,10 +1566,13 @@ const Dashboard = () => {
               </h1>
 
               <p
-                style={styles.subHeading}
+                style={
+                  styles.subHeading
+                }
               >
-                Track your academic projects
-                and AI-powered analysis.
+                Track your academic
+                projects and
+                AI-powered analysis.
               </p>
 
             </div>
@@ -1048,8 +1591,6 @@ const Dashboard = () => {
 
           </div>
 
-          {/* AI ANALYSIS STATUS */}
-
           {isAnalyzing && (
             <div
               style={
@@ -1060,8 +1601,6 @@ const Dashboard = () => {
               project...
             </div>
           )}
-
-          {/* PROJECT SECTION */}
 
           <section
             style={styles.section}
@@ -1089,8 +1628,9 @@ const Dashboard = () => {
                   }
                 >
                   Track your submitted
-                  projects and view their
-                  AI-powered analysis.
+                  projects and view
+                  their AI-powered
+                  analysis.
                 </p>
 
               </div>
@@ -1102,16 +1642,16 @@ const Dashboard = () => {
               >
                 {projects.length}{' '}
                 Project
-                {projects.length !== 1
+                {projects.length !==
+                1
                   ? 's'
                   : ''}
               </span>
 
             </div>
 
-            {/* EMPTY STATE */}
-
-            {projects.length === 0 && (
+            {projects.length ===
+              0 && (
               <div
                 style={
                   styles.emptyState
@@ -1132,9 +1672,10 @@ const Dashboard = () => {
                     styles.emptyText
                   }
                 >
-                  Submit your project idea
-                  to receive AI-powered
-                  project planning and
+                  Submit your project
+                  idea to receive
+                  AI-powered project
+                  planning and
                   mentorship.
                 </p>
 
@@ -1153,9 +1694,8 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* PROJECT LIST */}
-
-            {projects.length > 0 && (
+            {projects.length >
+              0 && (
               <div
                 style={
                   styles.projectList
@@ -1164,7 +1704,6 @@ const Dashboard = () => {
 
                 {projects.map(
                   (project) => {
-
                     const badgeStyle =
                       getBadgeStyle(
                         project.status
@@ -1184,8 +1723,6 @@ const Dashboard = () => {
                             : {})
                         }}
                       >
-
-                        {/* PROJECT INFORMATION */}
 
                         <div
                           style={
@@ -1212,7 +1749,6 @@ const Dashboard = () => {
                             <span
                               style={{
                                 ...styles.statusBadge,
-
                                 ...badgeStyle
                               }}
                             >
@@ -1257,8 +1793,6 @@ const Dashboard = () => {
                           </p>
 
                         </div>
-
-                        {/* PROJECT ACTIONS */}
 
                         <div
                           style={
@@ -1311,7 +1845,9 @@ const Dashboard = () => {
 
       </div>
 
-      {/* PROJECT SUBMISSION MODAL */}
+      {/* =================================================
+          PROJECT IDEA MODAL
+          ================================================= */}
 
       <IdeaSubmissionModal
         isOpen={isModalOpen}
@@ -1323,7 +1859,9 @@ const Dashboard = () => {
         }
       />
 
-      {/* AI ANALYSIS MODAL */}
+      {/* =================================================
+          AI ANALYSIS
+          ================================================= */}
 
       <AIAnalysis
         project={
@@ -1334,7 +1872,9 @@ const Dashboard = () => {
         }
       />
 
-      {/* PROJECT DETAILS MODAL */}
+      {/* =================================================
+          PROJECT DETAILS
+          ================================================= */}
 
       {isProjectDetailOpen &&
         selectedProject && (
@@ -1353,6 +1893,14 @@ const Dashboard = () => {
 
             isEvaluatingProgress={
               isEvaluatingProgress
+            }
+
+            onMarkWeekComplete={
+              handleMarkWeekComplete
+            }
+
+            completingWeek={
+              completingWeek
             }
           />
         )}
@@ -1391,8 +1939,7 @@ const styles = {
 
   pageHeader: {
     display: 'flex',
-    justifyContent:
-      'space-between',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '32px',
     gap: '20px'
@@ -1425,8 +1972,7 @@ const styles = {
 
   analysisBox: {
     backgroundColor: '#eff6ff',
-    border:
-      '1px solid #bfdbfe',
+    border: '1px solid #bfdbfe',
     borderRadius: '8px',
     padding: '12px 16px',
     marginBottom: '20px',
@@ -1437,16 +1983,14 @@ const styles = {
 
   section: {
     backgroundColor: '#ffffff',
-    border:
-      '1px solid #e2e8f0',
+    border: '1px solid #e2e8f0',
     borderRadius: '12px',
     padding: '24px'
   },
 
   sectionHeader: {
     display: 'flex',
-    justifyContent:
-      'space-between',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: '20px',
     gap: '20px'
@@ -1484,19 +2028,16 @@ const styles = {
   projectCard: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent:
-      'space-between',
+    justifyContent: 'space-between',
     gap: '20px',
     padding: '18px',
-    border:
-      '1px solid #e2e8f0',
+    border: '1px solid #e2e8f0',
     borderRadius: '10px',
     backgroundColor: '#ffffff'
   },
 
   selectedProjectCard: {
-    border:
-      '1px solid #93c5fd',
+    border: '1px solid #93c5fd',
     backgroundColor: '#eff6ff'
   },
 
@@ -1535,8 +2076,7 @@ const styles = {
     color: '#475569',
     display: '-webkit-box',
     WebkitLineClamp: 2,
-    WebkitBoxOrient:
-      'vertical',
+    WebkitBoxOrient: 'vertical',
     overflow: 'hidden'
   },
 
@@ -1562,8 +2102,7 @@ const styles = {
   detailsButton: {
     padding: '8px 12px',
     borderRadius: '8px',
-    border:
-      '1px solid #e2e8f0',
+    border: '1px solid #e2e8f0',
     backgroundColor: '#f8fafc',
     color: '#334155',
     fontSize: '12px',
@@ -1576,8 +2115,7 @@ const styles = {
     width: '38px',
     height: '38px',
     borderRadius: '8px',
-    border:
-      '1px solid #e2e8f0',
+    border: '1px solid #e2e8f0',
     backgroundColor: '#f8fafc',
     color: '#1d4ed8',
     fontSize: '20px',
@@ -1591,8 +2129,7 @@ const styles = {
   emptyState: {
     textAlign: 'center',
     padding: '60px 20px',
-    border:
-      '1px dashed #cbd5e1',
+    border: '1px dashed #cbd5e1',
     borderRadius: '10px',
     backgroundColor: '#f8fafc'
   },
@@ -1625,4 +2162,3 @@ const styles = {
 };
 
 export default Dashboard;
-
