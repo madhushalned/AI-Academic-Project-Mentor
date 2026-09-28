@@ -7,7 +7,9 @@ from app.crew.agents import (
     planning_agent,
     risk_agent,
     progress_mentor_agent,
-    weekly_mentor_agent
+    weekly_mentor_agent,
+    faculty_summary_agent
+    
 )
 
 from app.schemas.analysis_schema import (
@@ -555,4 +557,84 @@ weekly_mentor_task = Task(
     """,
 
     agent=weekly_mentor_agent
+)
+
+# ============================================================
+# 8. FACULTY MONITORING SUMMARY TASK
+# ============================================================
+
+faculty_summary_task = Task(
+    description="""
+    Generate a concise academic monitoring summary for a faculty member
+    supervising a student's project.
+
+    Project Information:
+    Title: {title}
+    Description: {description}
+    Domain: {domain}
+
+    Planned Milestones:
+    {milestones}
+
+    Current Progress:
+    {progress}
+
+    Progress Evaluation:
+    {progress_evaluation}
+
+    Weekly Check-ins:
+    {weekly_checkins}
+
+    Mentor and Risk Analysis:
+    {mentor_risk_analysis}
+
+    Initial Project Risks:
+    {risks}
+
+    Analyze the supplied information and provide a concise faculty-oriented
+    summary.
+
+    The summary must:
+    1. Describe the current state of the project.
+    2. Highlight important progress observations.
+    3. Identify the most important risks or blockers.
+    4. Mention whether the existing plan may require adjustment.
+    5. Provide practical points that faculty should be aware of.
+    6. Recommend appropriate follow-up actions when necessary.
+
+    IMPORTANT RULES:
+    - Use ONLY the information supplied in the project data.
+    - Do not invent progress, completed work, risks, or student activities.
+    - Do not introduce unrelated features or technologies.
+    - Do not make assumptions about information that is not provided.
+    - Keep the summary concise and suitable for a faculty dashboard.
+    - Focus on academic project supervision.
+    - Do not calculate or invent numerical progress scores.
+    - Do not change any stored project data.
+
+    Return ONLY valid JSON using exactly these fields:
+
+    {
+        "mentor_summary": "string",
+        "key_progress_observations": ["string"],
+        "key_risks": ["string"],
+        "faculty_attention": ["string"],
+        "recommended_follow_up": ["string"]
+    }
+
+    Do not use Markdown.
+    Do not use ```json.
+    Do not add explanations before or after the JSON.
+    """,
+
+    expected_output="""
+    A valid JSON object containing:
+    mentor_summary,
+    key_progress_observations,
+    key_risks,
+    faculty_attention,
+    recommended_follow_up.
+    """,
+
+    agent=faculty_summary_agent
 )

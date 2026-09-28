@@ -7,7 +7,8 @@ from app.crew.agents import (
     planning_agent,
     risk_agent,
     progress_mentor_agent,
-    weekly_mentor_agent
+    weekly_mentor_agent,
+    faculty_summary_agent
     
 )
 
@@ -18,7 +19,8 @@ from app.crew.tasks import (
     planning_task,
     risk_task,
     progress_evaluation_task,
-    weekly_mentor_task
+    weekly_mentor_task,
+    faculty_summary_task
     
 )
 
@@ -69,6 +71,18 @@ weekly_mentor_crew = Crew(
     ],
     tasks=[
         weekly_mentor_task
+    ],
+    process=Process.sequential,
+    llm=llm,
+    verbose=True
+)
+
+faculty_summary_crew = Crew(
+    agents=[
+        faculty_summary_agent
+    ],
+    tasks=[
+        faculty_summary_task
     ],
     process=Process.sequential,
     llm=llm,

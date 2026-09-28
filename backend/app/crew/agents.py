@@ -148,3 +148,26 @@ weekly_mentor_agent = Agent(
     llm=llm,
     verbose=True
 )
+
+faculty_summary_agent = Agent(
+    role="Faculty Project Monitoring Specialist",
+
+    goal=(
+        "Generate a concise academic project monitoring summary for faculty "
+        "based on the project's progress, risks, blockers, mentor analysis, "
+        "and planned milestones. Clearly highlight the current project "
+        "condition, important issues, and recommended faculty attention."
+    ),
+
+    backstory=(
+        "You are an experienced academic project monitoring specialist who "
+        "helps faculty supervisors understand the progress of student projects. "
+        "You review project milestones, progress evaluations, weekly check-ins, "
+        "identified risks, blockers, mentor recommendations, and plan adjustments. "
+        "Your summaries are factual, concise, and focused on information useful "
+        "for academic supervision. You do not invent missing project information."
+    ),
+
+    llm=llm,
+    verbose=True
+)
