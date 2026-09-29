@@ -2,7 +2,8 @@ from app.crew.crew import (
     project_planning_crew,
     progress_evaluation_crew,
     weekly_mentor_crew,
-    faculty_summary_crew
+    faculty_summary_crew,
+    create_document_generation_crew
 )
 
 from app.schemas.analysis_schema import (
@@ -380,26 +381,6 @@ def evaluate_project_progress(project_data: dict):
         # ====================================================
         # CALCULATE STUDENT PROGRESS
         # ====================================================
-        #
-        # IMPORTANT:
-        #
-        # We do NOT divide the student's progress by the
-        # total number of planned weeks.
-        #
-        # Example:
-        #
-        # Week 1 = 30%
-        #
-        # Overall reported progress = 30%
-        #
-        # Week 1 = 100%
-        # Week 2 = 50%
-        #
-        # Overall reported progress = 75%
-        #
-        # This represents the student's actual submitted
-        # progress.
-        # ====================================================
 
         progress_values = []
 
@@ -519,12 +500,6 @@ def evaluate_project_progress(project_data: dict):
 
         # ----------------------------------------------------
         # Determine delayed weeks
-        #
-        # Only consider planned weeks that have already
-        # reached their expected progress stage.
-        #
-        # For now, unreported future weeks are not treated
-        # as delayed automatically.
         # ----------------------------------------------------
 
         delayed_weeks = []
@@ -784,7 +759,7 @@ def analyze_weekly_mentor_update(
         ):
 
             raw_output = raw_output[
-                :-len("```"):
+                :-len("```")
             ].strip()
 
         # ----------------------------------------------------
@@ -1035,7 +1010,7 @@ def generate_faculty_summary(project_data: dict):
         ):
 
             raw_output = raw_output[
-                :-len("```"):
+                :-len("```")
             ].strip()
 
         # ----------------------------------------------------
@@ -1144,3 +1119,141 @@ def generate_faculty_summary(project_data: dict):
         )
 
         raise
+
+
+# ============================================================
+# DOCUMENT GENERATION
+# ============================================================
+
+def generate_project_document(
+    project_data: dict,
+    document_type: str
+):
+
+    """
+    Generate an academic project document.
+
+    Supported document types:
+    - synopsis
+    - methodology
+    - progress_report
+
+    A new CrewAI Crew instance is created for every
+    document-generation request to prevent executor
+    concurrency errors.
+    """
+
+    allowed_types = {
+        "synopsis",
+        "methodology",
+        "progress_report"
+    }
+
+    # --------------------------------------------------------
+    # Validate document type
+    # --------------------------------------------------------
+
+    if document_type not in allowed_types:
+
+        raise ValueError(
+            "Invalid document_type. "
+            "Allowed values: synopsis, methodology, progress_report"
+        )
+
+    # --------------------------------------------------------
+    # Create a NEW Crew instance for this request
+    # --------------------------------------------------------
+    #
+    # IMPORTANT:
+    #
+    # Do NOT reuse a global document_generation_crew.
+    # CrewAI's executor cannot be invoked concurrently
+    # on the same Crew instance.
+    #
+    # --------------------------------------------------------
+
+    document_generation_crew = (
+        create_document_generation_crew()
+    )
+
+    # --------------------------------------------------------
+    # Run document generation
+    # --------------------------------------------------------
+
+    result = document_generation_crew.kickoff(
+        inputs={
+            "title": project_data.get(
+                "title",
+                ""
+            ),
+
+            "description": project_data.get(
+                "description",
+                ""
+            ),
+
+            "domain": project_data.get(
+                "domain",
+                ""
+            ),
+
+            "expected_outcome": project_data.get(
+                "expectedOutcome",
+                ""
+            ),
+
+            "ai_analysis": project_data.get(
+                "ai_analysis",
+                {}
+            ),
+
+            "milestones": project_data.get(
+                "milestones",
+                []
+            ),
+
+            "risks": project_data.get(
+                "risks",
+                []
+            ),
+
+            "progress": project_data.get(
+                "progress",
+                []
+            ),
+
+            "progress_evaluation": project_data.get(
+                "progress_evaluation",
+                {}
+            ),
+
+            "document_type": document_type
+        }
+    )
+
+    # --------------------------------------------------------
+    # Get generated document content
+    # --------------------------------------------------------
+
+    content = str(
+        result.raw
+    ).strip()
+
+    # --------------------------------------------------------
+    # Validate generated content
+    # --------------------------------------------------------
+
+    if not content:
+
+        raise ValueError(
+            "Document generation returned empty content."
+        )
+
+    # --------------------------------------------------------
+    # Return generated document
+    # --------------------------------------------------------
+
+    return {
+        "document_type": document_type,
+        "content": content
+    }

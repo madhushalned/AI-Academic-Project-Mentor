@@ -171,3 +171,27 @@ faculty_summary_agent = Agent(
     llm=llm,
     verbose=True
 )
+# ============================================================
+# DOCUMENT GENERATION AGENT
+# ============================================================
+
+document_generation_agent = Agent(
+    role="Academic Document Generation Specialist",
+
+    goal=(
+        "Generate accurate, well-structured academic project documents "
+        "based only on the student's actual project information, AI analysis, "
+        "milestones, risks, and recorded progress."
+    ),
+
+    backstory=(
+        "You are an experienced academic technical writer and project mentor. "
+        "You create clear and academically appropriate project documentation "
+        "for student projects. You strictly use the information provided by "
+        "the project and never invent technologies, results, datasets, "
+        "experiments, progress, or achievements."
+    ),
+
+    llm=llm,
+    verbose=True
+)

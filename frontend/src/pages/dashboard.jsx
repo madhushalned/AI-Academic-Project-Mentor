@@ -7,6 +7,7 @@ import AIAnalysis from '../component/AIAnalysis';
 import ProjectDetailModal from '../component/ProjectDetailModal';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
+const ACTIVE_PROJECT_STORAGE_KEY = 'activeProjectId';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -16,48 +17,75 @@ const Dashboard = () => {
   // =====================================================
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isProjectDetailOpen, setIsProjectDetailOpen] = useState(false);
+  const [isProjectDetailOpen, setIsProjectDetailOpen] =
+    useState(false);
 
   // =====================================================
   // PROJECT STATES
   // =====================================================
 
   const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] =
+    useState(null);
   const [selectedAnalysisProject, setSelectedAnalysisProject] =
     useState(null);
-  const [projectProgress, setProjectProgress] = useState([]);
+  const [projectProgress, setProjectProgress] =
+    useState([]);
 
   // =====================================================
   // AI STATES
   // =====================================================
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isEvaluatingProgress, setIsEvaluatingProgress] = useState(false);
+  const [isEvaluatingProgress, setIsEvaluatingProgress] =
+    useState(false);
 
   // =====================================================
   // PROGRESS STATES
   // =====================================================
 
-  const [completingWeek, setCompletingWeek] = useState(null);
+  const [completingWeek, setCompletingWeek] =
+    useState(null);
 
   // =====================================================
   // PREVENT DUPLICATE AI EVALUATION REQUESTS
   // =====================================================
 
-  const progressEvaluationRunningRef = useRef(false);
+  const progressEvaluationRunningRef =
+    useRef(false);
+
+  // =====================================================
+  // STORE ACTIVE PROJECT
+  // =====================================================
+
+  const setActiveProjectId = (projectId) => {
+    if (!projectId) {
+      return;
+    }
+
+    localStorage.setItem(
+      ACTIVE_PROJECT_STORAGE_KEY,
+      String(projectId)
+    );
+
+    console.log(
+      'ACTIVE PROJECT ID:',
+      projectId
+    );
+  };
 
   // =====================================================
   // CALCULATE OVERALL PROGRESS
   // =====================================================
   //
-  // Overall progress is based ONLY on completed weeks.
+  // Overall progress:
+  //
+  // completed planned weeks
+  // ------------------------ × 100
+  // total planned weeks
   //
   // Example:
-  // 3 completed weeks / 7 total weeks = 42.86%
-  //
-  // Each completed week = 100%
-  // Each incomplete week = 0%
+  // 3 / 7 = 42.86% → 43%
   //
   // =====================================================
 
@@ -65,28 +93,94 @@ const Dashboard = () => {
     progressList,
     milestones = []
   ) => {
-    const totalWeeks = milestones.length;
+    const totalWeeks = Array.isArray(milestones)
+      ? milestones.length
+      : 0;
 
     if (totalWeeks === 0) {
       return 0;
     }
 
-    const completedWeeks = progressList.filter(
-      (item) =>
-        String(item?.status || '').toLowerCase() === 'completed' ||
-        Number(item?.current_progress ?? item?.progress ?? 0) >= 100
-    ).length;
+    const completedWeekNumbers =
+      new Set(
+        (Array.isArray(progressList)
+          ? progressList
+          : []
+        )
+          .filter((item) => {
+            const progress = Number(
+              item?.progress ??
+                item?.current_progress ??
+                0
+            );
+
+            const status = String(
+              item?.status || ''
+            ).toLowerCase();
+
+            return (
+              status === 'completed' ||
+              progress >= 100
+            );
+          })
+          .map((item) =>
+            Number(item?.week)
+          )
+          .filter((week) =>
+            Number.isFinite(week)
+          )
+      );
 
     return Math.round(
-      (completedWeeks / totalWeeks) * 100
+      (completedWeekNumbers.size /
+        totalWeeks) *
+        100
     );
+  };
+
+  // =====================================================
+  // GET COMPLETED WEEK NUMBERS
+  // =====================================================
+
+  const getCompletedWeekNumbers = (
+    progressList = []
+  ) => {
+    return (Array.isArray(progressList)
+      ? progressList
+      : []
+    )
+      .filter((item) => {
+        const progress = Number(
+          item?.progress ??
+            item?.current_progress ??
+            0
+        );
+
+        const status = String(
+          item?.status || ''
+        ).toLowerCase();
+
+        return (
+          status === 'completed' ||
+          progress >= 100
+        );
+      })
+      .map((item) =>
+        Number(item?.week)
+      )
+      .filter((week) =>
+        Number.isFinite(week)
+      )
+      .sort((a, b) => a - b);
   };
 
   // =====================================================
   // NORMALIZE PROGRESS DATA
   // =====================================================
 
-  const normalizeProgress = (progressList = []) => {
+  const normalizeProgress = (
+    progressList = []
+  ) => {
     if (!Array.isArray(progressList)) {
       return [];
     }
@@ -94,12 +188,14 @@ const Dashboard = () => {
     return progressList.map((item) => {
       const currentProgress = Number(
         item?.current_progress ??
-        item?.progress ??
-        0
+          item?.progress ??
+          0
       );
 
       const isCompleted =
-        String(item?.status || '').toLowerCase() ===
+        String(
+          item?.status || ''
+        ).toLowerCase() ===
           'completed' ||
         currentProgress >= 100;
 
@@ -116,7 +212,6 @@ const Dashboard = () => {
           ? 100
           : 0,
 
-        // Keep old field temporarily for backend compatibility
         progress: isCompleted
           ? 100
           : 0
@@ -132,13 +227,15 @@ const Dashboard = () => {
     const loadProjects = async () => {
       try {
         const student = JSON.parse(
-          localStorage.getItem('student')
+          localStorage.getItem('student') ||
+            'null'
         );
 
         if (!student) {
           console.warn(
             'No logged-in student found.'
           );
+
           return;
         }
 
@@ -146,13 +243,15 @@ const Dashboard = () => {
           `${API_BASE_URL}/projects/`
         );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (!response.ok) {
           console.error(
             'PROJECT LOAD ERROR:',
             data
           );
+
           return;
         }
 
@@ -161,34 +260,50 @@ const Dashboard = () => {
             'PROJECT LOAD ERROR: Expected array but received:',
             data
           );
+
           return;
         }
 
-        const studentProjects = data.filter(
-          (project) =>
-            String(project.student_id) ===
-            String(student.student_id)
-        );
+        const studentProjects =
+          data.filter(
+            (project) =>
+              String(
+                project.student_id
+              ) ===
+              String(
+                student.student_id
+              )
+          );
 
         const formattedProjects =
           studentProjects.map(
             (project) => {
               const normalizedProgress =
                 normalizeProgress(
-                  Array.isArray(project.progress)
+                  Array.isArray(
+                    project.progress
+                  )
                     ? project.progress
                     : []
                 );
 
               return {
                 id: project.project_id,
-                project_id: project.project_id,
-                student_id: project.student_id,
+                project_id:
+                  project.project_id,
 
-                title: project.title || '',
+                student_id:
+                  project.student_id,
+
+                title:
+                  project.title || '',
+
                 description:
-                  project.description || '',
-                domain: project.domain || '',
+                  project.description ||
+                  '',
+
+                domain:
+                  project.domain || '',
 
                 expectedOutcome:
                   project.expectedOutcome ||
@@ -203,12 +318,12 @@ const Dashboard = () => {
                       'Under Analysis',
 
                 ai_analysis:
-                  project.ai_analysis || null,
+                  project.ai_analysis ||
+                  null,
 
                 progress:
                   normalizedProgress,
 
-                // Maximum possible progress
                 total_progress: 100,
 
                 progress_evaluation:
@@ -232,7 +347,37 @@ const Dashboard = () => {
             }
           );
 
-        setProjects(formattedProjects);
+        setProjects(
+          formattedProjects
+        );
+
+        // -------------------------------------------------
+        // Restore active project ID
+        // -------------------------------------------------
+
+        const storedActiveProjectId =
+          localStorage.getItem(
+            ACTIVE_PROJECT_STORAGE_KEY
+          );
+
+        const storedProjectExists =
+          formattedProjects.some(
+            (project) =>
+              project.project_id ===
+              storedActiveProjectId
+          );
+
+        // If no valid active project exists,
+        // use the first available student project.
+        if (
+          !storedProjectExists &&
+          formattedProjects.length > 0
+        ) {
+          setActiveProjectId(
+            formattedProjects[0]
+              .project_id
+          );
+        }
 
         console.log(
           'PROJECTS LOADED:',
@@ -255,6 +400,10 @@ const Dashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('student');
+    localStorage.removeItem(
+      ACTIVE_PROJECT_STORAGE_KEY
+    );
+
     sessionStorage.clear();
 
     console.log(
@@ -273,7 +422,9 @@ const Dashboard = () => {
   ) => {
     try {
       const student = JSON.parse(
-        localStorage.getItem('student')
+        localStorage.getItem(
+          'student'
+        ) || 'null'
       );
 
       if (!student) {
@@ -286,13 +437,15 @@ const Dashboard = () => {
         formData.title?.trim() || '';
 
       const description =
-        formData.description?.trim() || '';
+        formData.description?.trim() ||
+        '';
 
       const domain =
         formData.domain?.trim() || '';
 
       const expectedOutcome =
-        formData.expectedOutcome?.trim() || '';
+        formData.expectedOutcome?.trim() ||
+        '';
 
       if (!title) {
         throw new Error(
@@ -318,16 +471,25 @@ const Dashboard = () => {
         );
       }
 
-      const projectId = `proj-${Date.now()}`;
+      const projectId =
+        `proj-${Date.now()}`;
 
       const projectData = {
         project_id: projectId,
-        student_id: student.student_id,
+
+        student_id:
+          student.student_id,
+
         title,
+
         description,
+
         domain,
+
         expectedOutcome,
-        status: 'not_started'
+
+        status:
+          'not_started'
       };
 
       console.log(
@@ -335,15 +497,21 @@ const Dashboard = () => {
         projectData
       );
 
+      // -------------------------------------------------
+      // CREATE PROJECT
+      // -------------------------------------------------
+
       const projectResponse =
         await fetch(
           `${API_BASE_URL}/projects/`,
           {
             method: 'POST',
+
             headers: {
               'Content-Type':
                 'application/json'
             },
+
             body: JSON.stringify(
               projectData
             )
@@ -377,6 +545,14 @@ const Dashboard = () => {
         projectResult.id ||
         projectId;
 
+      // -------------------------------------------------
+      // MAKE NEW PROJECT ACTIVE
+      // -------------------------------------------------
+
+      setActiveProjectId(
+        createdProjectId
+      );
+
       const today =
         new Date().toLocaleDateString(
           'en-GB',
@@ -389,25 +565,35 @@ const Dashboard = () => {
 
       const newProject = {
         id: createdProjectId,
-        project_id: createdProjectId,
+
+        project_id:
+          createdProjectId,
+
         student_id:
           student.student_id,
 
         title,
+
         description,
+
         domain,
+
         expectedOutcome,
 
-        status: 'Under Analysis',
+        status:
+          'Under Analysis',
 
         ai_analysis: null,
+
         progress: [],
 
         total_progress: 100,
 
-        progress_evaluation: null,
+        progress_evaluation:
+          null,
 
-        dateText: `Submitted on ${today}`
+        dateText:
+          `Submitted on ${today}`
       };
 
       setProjects(
@@ -423,9 +609,9 @@ const Dashboard = () => {
 
       setIsModalOpen(false);
 
-      // =================================================
+      // -------------------------------------------------
       // AUTOMATIC AI ANALYSIS
-      // =================================================
+      // -------------------------------------------------
 
       setIsAnalyzing(true);
 
@@ -439,6 +625,7 @@ const Dashboard = () => {
           `${API_BASE_URL}/projects/${createdProjectId}/analyze`,
           {
             method: 'POST',
+
             headers: {
               'Content-Type':
                 'application/json'
@@ -500,9 +687,9 @@ const Dashboard = () => {
           )
       );
 
-      // =================================================
+      // -------------------------------------------------
       // RELOAD PROJECT
-      // =================================================
+      // -------------------------------------------------
 
       try {
         const latestResponse =
@@ -572,6 +759,10 @@ const Dashboard = () => {
               null
           };
 
+          setActiveProjectId(
+            backendProject.project_id
+          );
+
           setSelectedAnalysisProject(
             backendProject
           );
@@ -625,6 +816,14 @@ const Dashboard = () => {
   const handleProjectOpen = (
     project
   ) => {
+    if (
+      project?.project_id
+    ) {
+      setActiveProjectId(
+        project.project_id
+      );
+    }
+
     setSelectedAnalysisProject(
       project
     );
@@ -648,13 +847,16 @@ const Dashboard = () => {
     project
   ) => {
     try {
-      if (!project?.project_id) {
+      if (
+        !project?.project_id
+      ) {
         return [];
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/projects/${project.project_id}/progress`
-      );
+      const response =
+        await fetch(
+          `${API_BASE_URL}/projects/${project.project_id}/progress`
+        );
 
       const data =
         await response.json();
@@ -670,12 +872,18 @@ const Dashboard = () => {
 
       let progressData = [];
 
-      if (Array.isArray(data)) {
-        progressData = data;
-      } else if (
-        Array.isArray(data?.progress)
+      if (
+        Array.isArray(data)
       ) {
-        progressData = data.progress;
+        progressData =
+          data;
+      } else if (
+        Array.isArray(
+          data?.progress
+        )
+      ) {
+        progressData =
+          data.progress;
       }
 
       return normalizeProgress(
@@ -696,9 +904,13 @@ const Dashboard = () => {
   // =====================================================
 
   const loadProjectMilestones =
-    async (project) => {
+    async (
+      project
+    ) => {
       try {
-        if (!project?.project_id) {
+        if (
+          !project?.project_id
+        ) {
           return [];
         }
 
@@ -719,7 +931,9 @@ const Dashboard = () => {
           return [];
         }
 
-        if (Array.isArray(data)) {
+        if (
+          Array.isArray(data)
+        ) {
           return data;
         }
 
@@ -743,7 +957,23 @@ const Dashboard = () => {
   // =====================================================
 
   const handleProjectDetailsOpen =
-    async (project) => {
+    async (
+      project
+    ) => {
+      if (
+        !project?.project_id
+      ) {
+        alert(
+          'Project ID is missing.'
+        );
+
+        return;
+      }
+
+      setActiveProjectId(
+        project.project_id
+      );
+
       console.log(
         'OPENING PROJECT DETAILS:',
         project.project_id
@@ -783,6 +1013,7 @@ const Dashboard = () => {
         ai_analysis: {
           ...(project.ai_analysis ||
             {}),
+
           milestones
         }
       };
@@ -806,11 +1037,21 @@ const Dashboard = () => {
 
   const handleProjectDetailsClose =
     () => {
-      setIsProjectDetailOpen(false);
-      setSelectedProject(null);
-      setProjectProgress([]);
+      setIsProjectDetailOpen(
+        false
+      );
 
-      setCompletingWeek(null);
+      setSelectedProject(
+        null
+      );
+
+      setProjectProgress(
+        []
+      );
+
+      setCompletingWeek(
+        null
+      );
     };
 
   // =====================================================
@@ -884,13 +1125,6 @@ const Dashboard = () => {
   // =====================================================
   // EVALUATE PROJECT PROGRESS WITH AI
   // =====================================================
-  //
-  // IMPORTANT:
-  // This function is NOT called while editing progress.
-  //
-  // It is called ONLY after a week is completed.
-  //
-  // =====================================================
 
   const handleProgressEvaluation =
     async (
@@ -904,6 +1138,7 @@ const Dashboard = () => {
         console.error(
           'No project ID available for evaluation.'
         );
+
         return null;
       }
 
@@ -912,6 +1147,22 @@ const Dashboard = () => {
       ) {
         console.log(
           'AI progress evaluation is already running. Skipping duplicate request.'
+        );
+
+        return null;
+      }
+
+      const targetProject =
+        selectedProject ||
+        projects.find(
+          (project) =>
+            project.project_id ===
+            targetProjectId
+        );
+
+      if (!targetProject) {
+        console.error(
+          'Target project not found.'
         );
 
         return null;
@@ -977,21 +1228,22 @@ const Dashboard = () => {
           data
         );
 
-        // =================================================
-        // GET FRESH PROJECT PROGRESS
-        // =================================================
+        // -------------------------------------------------
+        // GET FRESH PROGRESS
+        // -------------------------------------------------
 
-        let latestProgress =
+        const latestProgress =
           await loadProjectProgress(
-            selectedProject
+            targetProject
           );
 
-        // =================================================
-        // GET MILESTONES
-        // =================================================
+        // -------------------------------------------------
+        // GET FRESH MILESTONES
+        // -------------------------------------------------
 
         let latestMilestones =
-          selectedProject?.ai_analysis
+          targetProject
+            ?.ai_analysis
             ?.milestones || [];
 
         if (
@@ -1000,13 +1252,13 @@ const Dashboard = () => {
         ) {
           latestMilestones =
             await loadProjectMilestones(
-              selectedProject
+              targetProject
             );
         }
 
-        // =================================================
+        // -------------------------------------------------
         // CALCULATE OVERALL PROGRESS
-        // =================================================
+        // -------------------------------------------------
 
         const overallProgress =
           calculateOverallProgress(
@@ -1017,13 +1269,10 @@ const Dashboard = () => {
         const evaluation =
           data.evaluation || {};
 
-        /*
-         * The overall progress shown in the UI
-         * is based ONLY on completed weeks.
-         *
-         * Do not calculate it from partial
-         * weekly percentages.
-         */
+        const completedWeekNumbers =
+          getCompletedWeekNumbers(
+            latestProgress
+          );
 
         const updatedEvaluation = {
           ...evaluation,
@@ -1032,31 +1281,20 @@ const Dashboard = () => {
             overallProgress,
 
           completed_weeks:
-            latestProgress.filter(
-              (item) =>
-                String(
-                  item?.status || ''
-                ).toLowerCase() ===
-                  'completed' ||
-                Number(
-                  item?.current_progress ??
-                    item?.progress ??
-                    0
-                ) >= 100
-            ).length
+            completedWeekNumbers
         };
 
-        // =================================================
+        // -------------------------------------------------
         // UPDATE PROGRESS
-        // =================================================
+        // -------------------------------------------------
 
         setProjectProgress(
           latestProgress
         );
 
-        // =================================================
+        // -------------------------------------------------
         // UPDATE SELECTED PROJECT
-        // =================================================
+        // -------------------------------------------------
 
         setSelectedProject(
           (previousProject) => {
@@ -1080,14 +1318,22 @@ const Dashboard = () => {
                 overallProgress,
 
               progress_evaluation:
-                updatedEvaluation
+                updatedEvaluation,
+
+              ai_analysis: {
+                ...(previousProject.ai_analysis ||
+                  {}),
+
+                milestones:
+                  latestMilestones
+              }
             };
           }
         );
 
-        // =================================================
+        // -------------------------------------------------
         // UPDATE PROJECT LIST
-        // =================================================
+        // -------------------------------------------------
 
         setProjects(
           (previousProjects) =>
@@ -1101,10 +1347,19 @@ const Dashboard = () => {
                       progress:
                         latestProgress,
 
-                      total_progress: 100,
+                      total_progress:
+                        100,
 
                       progress_evaluation:
-                        updatedEvaluation
+                        updatedEvaluation,
+
+                      ai_analysis: {
+                        ...(project.ai_analysis ||
+                          {}),
+
+                        milestones:
+                          latestMilestones
+                      }
                     }
                   : project
             )
@@ -1113,6 +1368,11 @@ const Dashboard = () => {
         console.log(
           'OVERALL PROGRESS:',
           overallProgress
+        );
+
+        console.log(
+          'COMPLETED WEEKS:',
+          completedWeekNumbers
         );
 
         console.log(
@@ -1163,25 +1423,30 @@ const Dashboard = () => {
   // MARK WEEK COMPLETE
   // =====================================================
   //
-  // This is now the ONLY way to update weekly progress.
+  // This is the ONLY way to update weekly progress.
   //
-  // A completed week:
+  // Backend request:
   //
-  // current_progress = 100
-  // status = Completed
+  // {
+  //   week: number,
+  //   status: "Completed",
+  //   progress: 100
+  // }
   //
-  // No remarks.
-  // No Save Progress.
   // No partial progress.
+  // No remarks.
   //
   // =====================================================
 
   const handleMarkWeekComplete =
-    async (week) => {
+    async (
+      week
+    ) => {
       if (!selectedProject) {
         alert(
           'Please select a project first.'
         );
+
         return false;
       }
 
@@ -1197,6 +1462,7 @@ const Dashboard = () => {
         alert(
           'Invalid week number.'
         );
+
         return false;
       }
 
@@ -1208,9 +1474,9 @@ const Dashboard = () => {
           numericWeek
         );
 
-        // =================================================
+        // -------------------------------------------------
         // GET CURRENT SERVER PROGRESS
-        // =================================================
+        // -------------------------------------------------
 
         const currentProgress =
           await loadProjectProgress(
@@ -1224,21 +1490,21 @@ const Dashboard = () => {
               numericWeek
           );
 
-        // =================================================
+        // -------------------------------------------------
         // ALREADY COMPLETED
-        // =================================================
+        // -------------------------------------------------
 
         if (
           existingWeek &&
           (
             Number(
-              existingWeek?.current_progress ??
-                existingWeek?.progress ??
+              existingWeek?.progress ??
+                existingWeek?.current_progress ??
                 0
             ) >= 100 ||
             String(
               existingWeek?.status ||
-              ''
+                ''
             ).toLowerCase() ===
               'completed'
           )
@@ -1257,20 +1523,25 @@ const Dashboard = () => {
           return true;
         }
 
-        // =================================================
+        // -------------------------------------------------
         // CREATE COMPLETED WEEK
-        // =================================================
+        // -------------------------------------------------
+
+        // IMPORTANT:
+        // The backend ProgressUpdate schema accepts:
+        // week, status, progress, remarks.
+        //
+        // Therefore do NOT send current_progress.
 
         const completedProgress = {
-          week: numericWeek,
+          week:
+            numericWeek,
 
-          status: 'Completed',
+          status:
+            'Completed',
 
-          current_progress: 100,
-
-          // Keep this temporarily for backend
-          // compatibility if required.
-          progress: 100
+          progress:
+            100
         };
 
         console.log(
@@ -1278,9 +1549,9 @@ const Dashboard = () => {
           completedProgress
         );
 
-        // =================================================
+        // -------------------------------------------------
         // SAVE COMPLETED WEEK
-        // =================================================
+        // -------------------------------------------------
 
         const response =
           await fetch(
@@ -1328,9 +1599,9 @@ const Dashboard = () => {
           data
         );
 
-        // =================================================
+        // -------------------------------------------------
         // GET FRESH PROGRESS
-        // =================================================
+        // -------------------------------------------------
 
         const latestProgress =
           await loadProjectProgress(
@@ -1342,16 +1613,18 @@ const Dashboard = () => {
           latestProgress
         );
 
-        // =================================================
+        // -------------------------------------------------
         // GET MILESTONES
-        // =================================================
+        // -------------------------------------------------
 
         let milestones =
-          selectedProject?.ai_analysis
+          selectedProject
+            ?.ai_analysis
             ?.milestones || [];
 
         if (
-          milestones.length === 0
+          milestones.length ===
+          0
         ) {
           milestones =
             await loadProjectMilestones(
@@ -1359,9 +1632,9 @@ const Dashboard = () => {
             );
         }
 
-        // =================================================
+        // -------------------------------------------------
         // CALCULATE OVERALL PROGRESS
-        // =================================================
+        // -------------------------------------------------
 
         const overallProgress =
           calculateOverallProgress(
@@ -1369,20 +1642,14 @@ const Dashboard = () => {
             milestones
           );
 
+        const completedWeekNumbers =
+          getCompletedWeekNumbers(
+            latestProgress
+          );
+
         console.log(
           'COMPLETED WEEKS:',
-          latestProgress.filter(
-            (item) =>
-              String(
-                item?.status || ''
-              ).toLowerCase() ===
-                'completed' ||
-              Number(
-                item?.current_progress ??
-                  item?.progress ??
-                  0
-              ) >= 100
-          ).length
+          completedWeekNumbers
         );
 
         console.log(
@@ -1395,9 +1662,9 @@ const Dashboard = () => {
           `${overallProgress}%`
         );
 
-        // =================================================
+        // -------------------------------------------------
         // UPDATE UI IMMEDIATELY
-        // =================================================
+        // -------------------------------------------------
 
         updateProjectProgressState(
           projectId,
@@ -1421,17 +1688,25 @@ const Dashboard = () => {
               progress:
                 latestProgress,
 
-              total_progress: 100,
+              total_progress:
+                100,
 
               overall_progress:
-                overallProgress
+                overallProgress,
+
+              ai_analysis: {
+                ...(previousProject.ai_analysis ||
+                  {}),
+
+                milestones
+              }
             };
           }
         );
 
-        // =================================================
+        // -------------------------------------------------
         // AUTOMATIC AI EVALUATION
-        // =================================================
+        // -------------------------------------------------
 
         console.log(
           `STARTING AUTOMATIC AI EVALUATION AFTER WEEK ${numericWeek}`
@@ -1483,42 +1758,54 @@ const Dashboard = () => {
         return {
           backgroundColor:
             '#dcfce7',
-          color: '#166534'
+
+          color:
+            '#166534'
         };
 
       case 'Under Analysis':
         return {
           backgroundColor:
             '#dbeafe',
-          color: '#1d4ed8'
+
+          color:
+            '#1d4ed8'
         };
 
       case 'Idea Submitted':
         return {
           backgroundColor:
             '#fef3c7',
-          color: '#92400e'
+
+          color:
+            '#92400e'
         };
 
       case 'Draft':
         return {
           backgroundColor:
             '#f1f5f9',
-          color: '#475569'
+
+          color:
+            '#475569'
         };
 
       case 'Rejected':
         return {
           backgroundColor:
             '#fee2e2',
-          color: '#b91c1c'
+
+          color:
+            '#b91c1c'
         };
 
       default:
         return {
           backgroundColor:
             '#f1f5f9',
-          color: '#475569'
+
+          color:
+            '#475569'
         };
     }
   };
@@ -1529,38 +1816,42 @@ const Dashboard = () => {
 
   return (
     <div style={styles.page}>
-
       <Sidebar
-        onLogout={handleLogout}
+        onLogout={
+          handleLogout
+        }
       />
 
       <div
-        style={styles.mainContent}
+        style={
+          styles.mainContent
+        }
       >
-
         <Header
           user={{
             name: 'Student',
             role: 'Student'
           }}
           onProfileClick={() =>
-            window.location.href =
-              '/profile'
+            navigate('/profile')
           }
         />
 
         <main
-          style={styles.content}
+          style={
+            styles.content
+          }
         >
-
           <div
-            style={styles.pageHeader}
+            style={
+              styles.pageHeader
+            }
           >
-
             <div>
-
               <h1
-                style={styles.heading}
+                style={
+                  styles.heading
+                }
               >
                 Dashboard
               </h1>
@@ -1574,7 +1865,6 @@ const Dashboard = () => {
                 projects and
                 AI-powered analysis.
               </p>
-
             </div>
 
             <button
@@ -1583,12 +1873,13 @@ const Dashboard = () => {
                 styles.submitIdeaButton
               }
               onClick={() =>
-                setIsModalOpen(true)
+                setIsModalOpen(
+                  true
+                )
               }
             >
               + Submit Project Idea
             </button>
-
           </div>
 
           {isAnalyzing && (
@@ -1603,17 +1894,16 @@ const Dashboard = () => {
           )}
 
           <section
-            style={styles.section}
+            style={
+              styles.section
+            }
           >
-
             <div
               style={
                 styles.sectionHeader
               }
             >
-
               <div>
-
                 <h2
                   style={
                     styles.sectionTitle
@@ -1632,7 +1922,6 @@ const Dashboard = () => {
                   their AI-powered
                   analysis.
                 </p>
-
               </div>
 
               <span
@@ -1647,7 +1936,6 @@ const Dashboard = () => {
                   ? 's'
                   : ''}
               </span>
-
             </div>
 
             {projects.length ===
@@ -1657,7 +1945,6 @@ const Dashboard = () => {
                   styles.emptyState
                 }
               >
-
                 <h3
                   style={
                     styles.emptyTitle
@@ -1685,12 +1972,13 @@ const Dashboard = () => {
                     styles.emptyButton
                   }
                   onClick={() =>
-                    setIsModalOpen(true)
+                    setIsModalOpen(
+                      true
+                    )
                   }
                 >
                   Submit Project Idea
                 </button>
-
               </div>
             )}
 
@@ -1701,7 +1989,6 @@ const Dashboard = () => {
                   styles.projectList
                 }
               >
-
                 {projects.map(
                   (project) => {
                     const badgeStyle =
@@ -1723,19 +2010,16 @@ const Dashboard = () => {
                             : {})
                         }}
                       >
-
                         <div
                           style={
                             styles.projectInfo
                           }
                         >
-
                           <div
                             style={
                               styles.projectTopRow
                             }
                           >
-
                             <h3
                               style={
                                 styles.projectTitle
@@ -1756,7 +2040,6 @@ const Dashboard = () => {
                                 project.status
                               }
                             </span>
-
                           </div>
 
                           <p
@@ -1791,7 +2074,6 @@ const Dashboard = () => {
                               project.dateText
                             }
                           </p>
-
                         </div>
 
                         <div
@@ -1799,7 +2081,6 @@ const Dashboard = () => {
                             styles.projectActions
                           }
                         >
-
                           <button
                             type="button"
                             style={
@@ -1828,21 +2109,15 @@ const Dashboard = () => {
                           >
                             →
                           </button>
-
                         </div>
-
                       </div>
                     );
                   }
                 )}
-
               </div>
             )}
-
           </section>
-
         </main>
-
       </div>
 
       {/* =================================================
@@ -1850,9 +2125,13 @@ const Dashboard = () => {
           ================================================= */}
 
       <IdeaSubmissionModal
-        isOpen={isModalOpen}
+        isOpen={
+          isModalOpen
+        }
         onClose={() =>
-          setIsModalOpen(false)
+          setIsModalOpen(
+            false
+          )
         }
         onSubmit={
           handleIdeaSubmit
@@ -1904,7 +2183,6 @@ const Dashboard = () => {
             }
           />
         )}
-
     </div>
   );
 };
@@ -1916,248 +2194,518 @@ const Dashboard = () => {
 const styles = {
   page: {
     display: 'flex',
+
     width: '100%',
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
+
+    minHeight:
+      '100vh',
+
+    backgroundColor:
+      '#f8fafc',
+
     margin: 0,
+
     padding: 0,
-    overflowX: 'hidden'
+
+    overflowX:
+      'hidden'
   },
 
   mainContent: {
     flex: 1,
+
     minWidth: 0,
-    minHeight: '100vh',
-    height: '100vh',
-    overflowY: 'auto',
-    overflowX: 'hidden'
+
+    minHeight:
+      '100vh',
+
+    height:
+      '100vh',
+
+    overflowY:
+      'auto',
+
+    overflowX:
+      'hidden'
   },
 
   content: {
-    padding: '32px 40px'
+    padding:
+      '32px 40px'
   },
 
   pageHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '32px',
-    gap: '20px'
+    display:
+      'flex',
+
+    justifyContent:
+      'space-between',
+
+    alignItems:
+      'center',
+
+    marginBottom:
+      '32px',
+
+    gap:
+      '20px'
   },
 
   heading: {
     margin: 0,
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#0f172a'
+
+    fontSize:
+      '28px',
+
+    fontWeight:
+      '700',
+
+    color:
+      '#0f172a'
   },
 
   subHeading: {
-    margin: '8px 0 0',
-    fontSize: '14px',
-    color: '#64748b'
+    margin:
+      '8px 0 0',
+
+    fontSize:
+      '14px',
+
+    color:
+      '#64748b'
   },
 
   submitIdeaButton: {
-    padding: '11px 18px',
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap'
+    padding:
+      '11px 18px',
+
+    backgroundColor:
+      '#1d4ed8',
+
+    color:
+      '#ffffff',
+
+    border:
+      'none',
+
+    borderRadius:
+      '8px',
+
+    fontSize:
+      '14px',
+
+    fontWeight:
+      '500',
+
+    cursor:
+      'pointer',
+
+    whiteSpace:
+      'nowrap'
   },
 
   analysisBox: {
-    backgroundColor: '#eff6ff',
-    border: '1px solid #bfdbfe',
-    borderRadius: '8px',
-    padding: '12px 16px',
-    marginBottom: '20px',
-    color: '#1d4ed8',
-    fontSize: '14px',
-    fontWeight: '500'
+    backgroundColor:
+      '#eff6ff',
+
+    border:
+      '1px solid #bfdbfe',
+
+    borderRadius:
+      '8px',
+
+    padding:
+      '12px 16px',
+
+    marginBottom:
+      '20px',
+
+    color:
+      '#1d4ed8',
+
+    fontSize:
+      '14px',
+
+    fontWeight:
+      '500'
   },
 
   section: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '24px'
+    backgroundColor:
+      '#ffffff',
+
+    border:
+      '1px solid #e2e8f0',
+
+    borderRadius:
+      '12px',
+
+    padding:
+      '24px'
   },
 
   sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '20px',
-    gap: '20px'
+    display:
+      'flex',
+
+    justifyContent:
+      'space-between',
+
+    alignItems:
+      'flex-start',
+
+    marginBottom:
+      '20px',
+
+    gap:
+      '20px'
   },
 
   sectionTitle: {
     margin: 0,
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#0f172a'
+
+    fontSize:
+      '18px',
+
+    fontWeight:
+      '600',
+
+    color:
+      '#0f172a'
   },
 
   sectionSubtitle: {
-    margin: '6px 0 0',
-    fontSize: '13px',
-    color: '#64748b'
+    margin:
+      '6px 0 0',
+
+    fontSize:
+      '13px',
+
+    color:
+      '#64748b'
   },
 
   projectCount: {
-    fontSize: '13px',
-    color: '#64748b',
-    whiteSpace: 'nowrap'
+    fontSize:
+      '13px',
+
+    color:
+      '#64748b',
+
+    whiteSpace:
+      'nowrap'
   },
 
   projectList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    maxHeight: '600px',
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    paddingRight: '8px'
+    display:
+      'flex',
+
+    flexDirection:
+      'column',
+
+    gap:
+      '12px',
+
+    maxHeight:
+      '600px',
+
+    overflowY:
+      'auto',
+
+    overflowX:
+      'hidden',
+
+    paddingRight:
+      '8px'
   },
 
   projectCard: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '20px',
-    padding: '18px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px',
-    backgroundColor: '#ffffff'
+    display:
+      'flex',
+
+    alignItems:
+      'center',
+
+    justifyContent:
+      'space-between',
+
+    gap:
+      '20px',
+
+    padding:
+      '18px',
+
+    border:
+      '1px solid #e2e8f0',
+
+    borderRadius:
+      '10px',
+
+    backgroundColor:
+      '#ffffff'
   },
 
   selectedProjectCard: {
-    border: '1px solid #93c5fd',
-    backgroundColor: '#eff6ff'
+    border:
+      '1px solid #93c5fd',
+
+    backgroundColor:
+      '#eff6ff'
   },
 
   projectInfo: {
     flex: 1,
+
     minWidth: 0
   },
 
   projectTopRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap'
+    display:
+      'flex',
+
+    alignItems:
+      'center',
+
+    gap:
+      '12px',
+
+    flexWrap:
+      'wrap'
   },
 
   projectTitle: {
     margin: 0,
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#0f172a'
+
+    fontSize:
+      '16px',
+
+    fontWeight:
+      '600',
+
+    color:
+      '#0f172a'
   },
 
   statusBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '4px 9px',
-    borderRadius: '999px',
-    fontSize: '12px',
-    fontWeight: '500'
+    display:
+      'inline-flex',
+
+    alignItems:
+      'center',
+
+    padding:
+      '4px 9px',
+
+    borderRadius:
+      '999px',
+
+    fontSize:
+      '12px',
+
+    fontWeight:
+      '500'
   },
 
   projectDescription: {
-    margin: '8px 0 5px',
-    fontSize: '14px',
-    lineHeight: '1.5',
-    color: '#475569',
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden'
+    margin:
+      '8px 0 5px',
+
+    fontSize:
+      '14px',
+
+    lineHeight:
+      '1.5',
+
+    color:
+      '#475569',
+
+    display:
+      '-webkit-box',
+
+    WebkitLineClamp:
+      2,
+
+    WebkitBoxOrient:
+      'vertical',
+
+    overflow:
+      'hidden'
   },
 
   projectDomain: {
-    margin: '0 0 5px',
-    fontSize: '12px',
-    color: '#64748b'
+    margin:
+      '0 0 5px',
+
+    fontSize:
+      '12px',
+
+    color:
+      '#64748b'
   },
 
   projectDate: {
     margin: 0,
-    fontSize: '12px',
-    color: '#94a3b8'
+
+    fontSize:
+      '12px',
+
+    color:
+      '#94a3b8'
   },
 
   projectActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexShrink: 0
+    display:
+      'flex',
+
+    alignItems:
+      'center',
+
+    gap:
+      '8px',
+
+    flexShrink:
+      0
   },
 
   detailsButton: {
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
-    backgroundColor: '#f8fafc',
-    color: '#334155',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap'
+    padding:
+      '8px 12px',
+
+    borderRadius:
+      '8px',
+
+    border:
+      '1px solid #e2e8f0',
+
+    backgroundColor:
+      '#f8fafc',
+
+    color:
+      '#334155',
+
+    fontSize:
+      '12px',
+
+    fontWeight:
+      '600',
+
+    cursor:
+      'pointer',
+
+    whiteSpace:
+      'nowrap'
   },
 
   arrowButton: {
-    width: '38px',
-    height: '38px',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
-    backgroundColor: '#f8fafc',
-    color: '#1d4ed8',
-    fontSize: '20px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0
+    width:
+      '38px',
+
+    height:
+      '38px',
+
+    borderRadius:
+      '8px',
+
+    border:
+      '1px solid #e2e8f0',
+
+    backgroundColor:
+      '#f8fafc',
+
+    color:
+      '#1d4ed8',
+
+    fontSize:
+      '20px',
+
+    cursor:
+      'pointer',
+
+    display:
+      'flex',
+
+    alignItems:
+      'center',
+
+    justifyContent:
+      'center',
+
+    flexShrink:
+      0
   },
 
   emptyState: {
-    textAlign: 'center',
-    padding: '60px 20px',
-    border: '1px dashed #cbd5e1',
-    borderRadius: '10px',
-    backgroundColor: '#f8fafc'
+    textAlign:
+      'center',
+
+    padding:
+      '60px 20px',
+
+    border:
+      '1px dashed #cbd5e1',
+
+    borderRadius:
+      '10px',
+
+    backgroundColor:
+      '#f8fafc'
   },
 
   emptyTitle: {
-    margin: '0 0 8px',
-    fontSize: '17px',
-    fontWeight: '600',
-    color: '#334155'
+    margin:
+      '0 0 8px',
+
+    fontSize:
+      '17px',
+
+    fontWeight:
+      '600',
+
+    color:
+      '#334155'
   },
 
   emptyText: {
-    maxWidth: '480px',
-    margin: '0 auto 20px',
-    fontSize: '14px',
-    lineHeight: '1.6',
-    color: '#64748b'
+    maxWidth:
+      '480px',
+
+    margin:
+      '0 auto 20px',
+
+    fontSize:
+      '14px',
+
+    lineHeight:
+      '1.6',
+
+    color:
+      '#64748b'
   },
 
   emptyButton: {
-    padding: '10px 16px',
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '7px',
-    fontSize: '14px',
-    fontWeight: '500',
-    cursor: 'pointer'
+    padding:
+      '10px 16px',
+
+    backgroundColor:
+      '#1d4ed8',
+
+    color:
+      '#ffffff',
+
+    border:
+      'none',
+
+    borderRadius:
+      '7px',
+
+    fontSize:
+      '14px',
+
+    fontWeight:
+      '500',
+
+    cursor:
+      'pointer'
   }
 };
 

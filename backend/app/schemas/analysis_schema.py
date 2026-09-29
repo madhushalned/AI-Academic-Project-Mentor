@@ -105,3 +105,17 @@ class MentorRiskAnalysis(BaseModel):
     plan_adjustment_required: bool = False
     adjusted_plan: List[str] = Field(default_factory=list)
     next_actions: List[str] = Field(default_factory=list)
+
+    # ============================================================
+# DOCUMENT GENERATION SCHEMAS
+# ============================================================
+
+class DocumentGenerationRequest(BaseModel):
+    project_id: str
+    document_type: str
+
+
+class DocumentGenerationResponse(BaseModel):
+    project_id: str
+    document_type: str
+    content: str

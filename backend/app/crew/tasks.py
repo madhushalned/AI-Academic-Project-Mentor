@@ -8,6 +8,7 @@ from app.crew.agents import (
     risk_agent,
     progress_mentor_agent,
     weekly_mentor_agent,
+    document_generation_agent,
     faculty_summary_agent
     
 )
@@ -637,4 +638,102 @@ faculty_summary_task = Task(
     """,
 
     agent=faculty_summary_agent
+)
+
+# ============================================================
+# 9. DOCUMENT GENERATION TASK
+# ============================================================
+
+document_generation_task = Task(
+    description="""
+    Generate an academic project document based strictly on the
+    information supplied by the student project.
+
+    Project Information:
+    Title: {title}
+    Description: {description}
+    Domain: {domain}
+    Expected Outcome: {expected_outcome}
+
+    AI Project Analysis:
+    {ai_analysis}
+
+    Planned Milestones:
+    {milestones}
+
+    Project Risks:
+    {risks}
+
+    Recorded Progress:
+    {progress}
+
+    Progress Evaluation:
+    {progress_evaluation}
+
+    Requested Document Type:
+    {document_type}
+
+    Supported document types:
+    1. synopsis
+    2. methodology
+    3. progress_report
+
+    DOCUMENT RULES:
+
+    SYNOPSIS:
+    Generate a concise academic synopsis containing:
+    - Project title
+    - Problem statement
+    - Project objectives
+    - Proposed approach
+    - Main technologies or methods actually identified
+    - Expected outcome
+    - Project scope
+
+    METHODOLOGY:
+    Generate a structured methodology containing:
+    - Problem understanding
+    - Data preparation or input preparation when applicable
+    - System/model development approach
+    - Training or implementation process when applicable
+    - Evaluation approach
+    - Integration/testing approach
+    - Technologies and methods actually present in the project
+
+    PROGRESS REPORT:
+    Generate a factual progress report containing:
+    - Project overview
+    - Planned milestones
+    - Completed weeks
+    - Current progress
+    - Delayed or incomplete work
+    - Current issues/blockers
+    - Risks
+    - Recommendations
+    - Next actions
+
+    IMPORTANT ACADEMIC RULES:
+
+    - Use ONLY the information supplied in the input.
+    - Do not invent results, accuracy values, datasets, experiments,
+      technologies, completed work, or achievements.
+    - Do not claim that an incomplete milestone is completed.
+    - Do not introduce new project features.
+    - Do not add databases, APIs, deployment, cloud services,
+      dashboards, or external integrations unless they are explicitly
+      present in the supplied project information.
+    - Keep the document appropriate for an academic student project.
+    - Use clear professional academic language.
+    - Organize the document with headings and paragraphs.
+    - Do not use Markdown code fences.
+    - Do not return JSON.
+    - Return only the generated document text.
+    """,
+
+    expected_output="""
+    A complete academic document in plain text with appropriate headings,
+    based strictly on the supplied project information.
+    """,
+
+    agent=document_generation_agent
 )

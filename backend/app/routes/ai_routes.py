@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from app.services.ai_service import (
     analyze_project,
     evaluate_project_progress,
-    analyze_weekly_mentor_update
+    analyze_weekly_mentor_update,
+    generate_project_document
 )
 
 from app.services.project_service import (
@@ -44,6 +45,10 @@ class WeeklyMentorRequest(BaseModel):
     blockers: list[str] = []
     next_goals: list[str] = []
     remarks: str | None = None
+
+class DocumentGenerationRequest(BaseModel):
+    project_id: str
+    document_type: str
 
 
 # ============================================================
@@ -288,4 +293,63 @@ def weekly_mentor_endpoint(
             status_code=500,
             detail=f"Weekly mentor analysis failed: {str(e)}"
         )
+# ============================================================
+# DOCUMENT GENERATION
+# ============================================================
 
+@router.post("/generate-document")
+def generate_document_endpoint(
+    request: DocumentGenerationRequest
+):
+    """
+    Generate an academic project document using CrewAI.
+    """
+
+    allowed_types = {
+        "synopsis",
+        "methodology",
+        "progress_report"
+    }
+
+    if request.document_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid document_type. "
+                "Allowed values: synopsis, methodology, progress_report"
+            )
+        )
+
+    project = get_project_by_id(request.project_id)
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found."
+        )
+
+    try:
+        result = generate_project_document(
+            project_data=project,
+            document_type=request.document_type
+        )
+
+        return {
+            "project_id": request.project_id,
+            "document_type": request.document_type,
+            "content": result["content"]
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc)
+        )
+
+    except Exception as exc:
+        print(f"Document generation failed: {exc}")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Document generation failed."
+        )
