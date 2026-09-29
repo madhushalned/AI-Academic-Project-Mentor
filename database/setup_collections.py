@@ -22,6 +22,63 @@ blueprint_validator = {
     }
 }
 
+history_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "version", "snapshot", "archived_at"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "version": {"bsonType": "int"},
+            "snapshot": {"bsonType": "object"},
+            "archived_at": {"bsonType": "date"}
+        }
+    }
+}
+
+checkin_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "week_number", "student_message"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "week_number": {"bsonType": "int"},
+            "student_message": {"bsonType": "string"},
+            "mentor_response": {"bsonType": ["string", "null"]},
+            "status": {"enum": ["on_track", "behind", "blocked"]},
+            "created_at": {"bsonType": "date"}
+        }
+    }
+}
+
+document_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "document_type"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "document_type": {"bsonType": "string"},
+            "content": {"bsonType": ["string", "null"]},
+            "file_path": {"bsonType": ["string", "null"]},
+            "generated_at": {"bsonType": "date"}
+        }
+    }
+}
+
+progress_validator = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["student_id", "week_number", "update_type", "description"],
+        "properties": {
+            "student_id": {"bsonType": "string"},
+            "week_number": {"bsonType": "int"},
+            "update_type": {"bsonType": "string"},
+            "description": {"bsonType": "string"},
+            "resolved": {"bsonType": "bool"},
+            "created_at": {"bsonType": "date"}
+        }
+    }
+}
+
 student_validator = {
     "$jsonSchema": {
         "bsonType": "object",
@@ -68,10 +125,38 @@ def create_collections():
         print("Created 'blueprints' collection.")
     except CollectionInvalid:
         print("'blueprints' already exists — skipping.")
+    try:
+        db.create_collection("blueprint_history", validator=history_validator)
+        print("Created 'blueprint_history' collection.")
+    except CollectionInvalid:
+        print("'blueprint_history' already exists — skipping.")
+    try:
+        db.create_collection("check_ins", validator=checkin_validator)
+        print("Created 'check_ins' collection.")
+    except CollectionInvalid:
+        print("'check_ins' already exists — skipping.")
+    try:
+        db.create_collection("generated_documents", validator=document_validator)
+        print("Created 'generated_documents' collection.")
+    except CollectionInvalid:
+        print("'generated_documents' already exists — skipping.")
+
+    try:
+        db.create_collection("progress_updates", validator=progress_validator)
+        print("Created 'progress_updates' collection.")
+    except CollectionInvalid:
+        print("'progress_updates' already exists — skipping.")
 
     db.students.create_index("student_id", unique=True)
     db.skill_assessments.create_index("student_id")
     db.blueprints.create_index("student_id")
+    db.skill_assessments.create_index([("student_id", 1), ("assessment_date", -1)])
+    db.blueprints.create_index([("student_id", 1), ("status", 1)])
+    db.blueprint_history.create_index([("student_id", 1), ("version", 1)])
+    db.check_ins.create_index([("student_id", 1), ("week_number", 1)])
+    db.generated_documents.create_index([("student_id", 1), ("document_type", 1)])
+    db.progress_updates.create_index([("student_id", 1), ("resolved", 1)])
+    print("Compound indexes created.")
     print("Indexes created.")
 
 if __name__ == "__main__":

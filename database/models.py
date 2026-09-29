@@ -59,6 +59,7 @@ class Blueprint(BaseModel):
     student_id: str
     original_idea: str
     status: str = "pending"
+    version: int = 1
     feasibility: Optional[FeasibilitySection] = None
     scope: Optional[ScopeSection] = None
     tech_stack: Optional[TechStackSection] = None
@@ -66,3 +67,26 @@ class Blueprint(BaseModel):
     risk: Optional[RiskSection] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CheckIn(BaseModel):
+    student_id: str
+    week_number: int
+    student_message: str
+    mentor_response: Optional[str] = None
+    status: str = "on_track"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class GeneratedDocument(BaseModel):
+    student_id: str
+    document_type: str
+    content: Optional[str] = None
+    file_path: Optional[str] = None
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProgressUpdate(BaseModel):
+    student_id: str
+    week_number: int
+    update_type: str
+    description: str
+    resolved: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
