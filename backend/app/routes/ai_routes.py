@@ -12,6 +12,7 @@ from app.services.ai_service import (
 from app.services.project_service import (
     get_project_by_id,
     save_weekly_checkin,
+    update_project_progress,
     update_mentor_risk_analysis
 )
 
@@ -240,13 +241,41 @@ def weekly_mentor_endpoint(
         )
 
         if not saved:
+
             raise HTTPException(
                 status_code=500,
                 detail="Failed to save weekly check-in"
             )
 
         # ----------------------------------------------------
-        # Step 4: Run AI mentor analysis
+        # Step 2: Update main project progress
+        # ----------------------------------------------------
+
+        progress_data = {
+            "week": request.week,
+            "status": (
+                "Completed"
+                if request.current_progress >= 100
+                else "In Progress"
+            ),
+            "progress": request.current_progress,
+            "remarks": request.remarks
+        }
+
+        progress_updated = update_project_progress(
+            request.project_id,
+            progress_data
+        )
+
+        if not progress_updated:
+
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update project progress"
+            )
+
+        # ----------------------------------------------------
+        # Step 3: Run AI Mentor analysis
         # ----------------------------------------------------
 
         analysis = analyze_weekly_mentor_update(
@@ -264,23 +293,26 @@ def weekly_mentor_endpoint(
         )
 
         if not saved_analysis:
+
             raise HTTPException(
                 status_code=500,
                 detail="Failed to save mentor analysis"
             )
 
         # ----------------------------------------------------
-        # Step 6: Return result
+        # Step 5: Return result
         # ----------------------------------------------------
 
         return {
             "project_id": request.project_id,
             "week": request.week,
             "checkin": checkin_data,
+            "progress_updated": progress_data,
             "mentor_analysis": analysis
         }
 
     except HTTPException:
+
         raise
 
     except Exception as e:
