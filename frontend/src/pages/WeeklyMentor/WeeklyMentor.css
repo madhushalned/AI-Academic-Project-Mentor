@@ -1,0 +1,267 @@
+.weekly-mentor-page {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background: #f5f7fb;
+  overflow: hidden;
+}
+
+.weekly-mentor-main {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.weekly-mentor-content {
+  padding: 30px;
+  padding-bottom: 80px;
+  box-sizing: border-box;
+}
+
+/* Page Heading */
+
+.page-heading {
+  margin-bottom: 28px;
+}
+
+.page-heading h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.page-heading p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Main Layout */
+
+.mentor-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Cards */
+
+.checkin-card,
+.mentor-response-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.card-header {
+  margin-bottom: 24px;
+}
+
+.card-header h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  color: #1f2937;
+}
+
+.card-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Form */
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  transition: 0.2s ease;
+}
+
+.form-group textarea::placeholder {
+  color: #9ca3af;
+}
+
+.form-group textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Submit Button */
+
+.submit-checkin-btn {
+  width: 100%;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.submit-checkin-btn:hover {
+  background: #1d4ed8;
+}
+
+.submit-checkin-btn:active {
+  transform: translateY(1px);
+}
+
+/* Empty Mentor State */
+
+.empty-mentor-state {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.empty-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 25px;
+  margin-bottom: 16px;
+}
+
+.empty-mentor-state h3 {
+  margin: 0 0 8px;
+  color: #374151;
+  font-size: 17px;
+}
+
+.empty-mentor-state p {
+  max-width: 350px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* AI Feedback */
+
+.mentor-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.feedback-section {
+  padding: 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.feedback-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #1f2937;
+}
+
+.feedback-section p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.feedback-section ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.feedback-section li {
+  margin-bottom: 4px;
+}
+
+.feedback-section li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive */
+
+@media (max-width: 1000px) {
+  .mentor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .empty-mentor-state {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 700px) {
+  .weekly-mentor-content {
+    padding: 20px;
+    padding-bottom: 60px;
+  }
+
+  .checkin-card,
+  .mentor-response-card {
+    padding: 20px;
+  }
+
+  .page-heading h1 {
+    font-size: 24px;
+  }
+  .error-message {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.submit-checkin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+}
