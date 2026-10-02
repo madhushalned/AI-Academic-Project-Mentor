@@ -7,7 +7,12 @@ from app.services.ai_service import (
     analyze_weekly_mentor_update
 )
 
-from app.services.project_service import get_project_by_id,save_weekly_checkin,update_mentor_risk_analysis
+from app.services.project_service import (
+    get_project_by_id,
+    save_weekly_checkin,
+    update_project_progress,
+    update_mentor_risk_analysis
+)
 
 
 router = APIRouter(
@@ -25,6 +30,8 @@ class ProjectAnalysisRequest(BaseModel):
 
 class ProgressEvaluationRequest(BaseModel):
     project_id: str
+
+
 class WeeklyMentorRequest(BaseModel):
     project_id: str
     week: int
@@ -33,6 +40,7 @@ class WeeklyMentorRequest(BaseModel):
     blockers: list[str] = []
     next_goals: list[str] = []
     remarks: str | None = None
+
 
 @router.post("/analyze-project")
 def analyze_project_endpoint(project: ProjectAnalysisRequest):
@@ -72,6 +80,8 @@ def evaluate_progress_endpoint(
             status_code=500,
             detail=f"AI progress evaluation failed: {str(e)}"
         )
+
+
 @router.post("/weekly-mentor")
 def weekly_mentor_endpoint(
     request: WeeklyMentorRequest
@@ -110,6 +120,29 @@ def weekly_mentor_endpoint(
                 detail="Failed to save weekly check-in"
             )
 
+        # Update main project progress
+        progress_data = {
+            "week": request.week,
+            "status": (
+                "Completed"
+                if request.current_progress >= 100
+                else "In Progress"
+            ),
+            "progress": request.current_progress,
+            "remarks": request.remarks
+        }
+
+        progress_updated = update_project_progress(
+            request.project_id,
+            progress_data
+        )
+
+        if not progress_updated:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update project progress"
+            )
+
         # Run AI mentor analysis
         analysis = analyze_weekly_mentor_update(
             project,
@@ -132,6 +165,7 @@ def weekly_mentor_endpoint(
             "project_id": request.project_id,
             "week": request.week,
             "checkin": checkin_data,
+            "progress_updated": progress_data,
             "mentor_analysis": analysis
         }
 
