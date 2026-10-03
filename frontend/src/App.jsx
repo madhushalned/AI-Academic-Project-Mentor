@@ -9,16 +9,15 @@ import "./styles/integrated-pages.css";
 
 import Login from "./pages/login";
 import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import Profile from "./pages/Profile";
+import ForgotPassword from "./pages/Forgotpassword";
 import Dashboard from "./pages/dashboard";
 
 import MilestoneManagement from "./pages/MilestoneManagement";
 import TimelineManagement from "./pages/TimelineManagement";
 import Documents from "./pages/Documents";
+import WeeklyMentor from "./pages/WeeklyMentor/WeeklyMentor";
 
 import IntegratedLayout from "./components/IntegratedLayout";
-
 
 function App() {
   return (
@@ -80,10 +79,10 @@ function App() {
           element={<Documents />}
         />
 
-        {/* Profile */}
+        {/* Weekly Mentor */}
         <Route
-          path="/profile"
-          element={<Profile />}
+          path="/weekly-mentor"
+          element={<WeeklyMentor />}
         />
 
       </Routes>
