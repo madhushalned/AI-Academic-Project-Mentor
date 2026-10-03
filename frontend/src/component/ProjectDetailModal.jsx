@@ -1,11 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const ProjectDetailModal = ({
   project,
   onClose,
   onEvaluateProgress,
-  isEvaluatingProgress
+  isEvaluatingProgress,
+  onSubmitWeeklyCheckin,
+  isSubmittingWeeklyCheckin
 }) => {
+  const [weeklyCheckin, setWeeklyCheckin] = useState({
+    week: 1,
+    completed_work: '',
+    current_progress: 0,
+    blockers: '',
+    next_goals: '',
+    remarks: ''
+  });
+
+  const [mentorResult, setMentorResult] = useState(null);
+
+  const handleWeeklyCheckinChange = (field, value) => {
+  setWeeklyCheckin((previous) => ({
+    ...previous,
+    [field]: value
+  }));
+};
+
+    const handleWeeklyCheckinSubmit = async (event) => {
+    event.preventDefault();
+
+    const result = await onSubmitWeeklyCheckin({
+      ...weeklyCheckin,
+      week: Number(weeklyCheckin.week),
+      current_progress: Number(weeklyCheckin.current_progress),
+      completed_work: weeklyCheckin.completed_work
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      blockers: weeklyCheckin.blockers
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      next_goals: weeklyCheckin.next_goals
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    });
+
+    if (result) {
+      setMentorResult(result.mentor_analysis || null);
+    }
+  };
+
   if (!project) {
     return null;
   }
@@ -347,6 +393,303 @@ const ProjectDetailModal = ({
           </button>
 
         </div>
+
+                {/* M3 Weekly Check-in */}
+        <div style={styles.weeklyCheckinContainer}>
+
+          <div style={styles.evaluationHeader}>
+
+            <div>
+              <h3 style={styles.sectionTitle}>
+                Weekly Check-in
+              </h3>
+
+              <p style={styles.sectionSubtitle}>
+                Share your weekly progress, blockers,
+                and goals to get AI mentor guidance.
+              </p>
+            </div>
+
+          </div>
+
+          <form onSubmit={handleWeeklyCheckinSubmit}>
+
+            {/* Week */}
+            <div style={styles.formGroup}>
+
+              <label style={styles.formLabel}>
+                Week
+              </label>
+
+              <input
+                type="number"
+                min="1"
+                value={weeklyCheckin.week}
+                onChange={(event) =>
+                  handleWeeklyCheckinChange(
+                    'week',
+                    event.target.value
+                  )
+                }
+                style={styles.formInput}
+                required
+              />
+
+            </div>
+
+            {/* Completed Work */}
+            <div style={styles.formGroup}>
+
+              <label style={styles.formLabel}>
+                Completed Work
+              </label>
+
+              <textarea
+                value={weeklyCheckin.completed_work}
+                onChange={(event) =>
+                  handleWeeklyCheckinChange(
+                    'completed_work',
+                    event.target.value
+                  )
+                }
+                placeholder="Enter completed work, one item per line"
+                style={styles.formTextarea}
+                rows="4"
+                required
+              />
+
+            </div>
+
+            {/* Current Progress */}
+            <div style={styles.formGroup}>
+
+              <label style={styles.formLabel}>
+                Current Progress (%)
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={weeklyCheckin.current_progress}
+                onChange={(event) =>
+                  handleWeeklyCheckinChange(
+                    'current_progress',
+                    event.target.value
+                  )
+                }
+                style={styles.formInput}
+                required
+              />
+
+            </div>
+
+            {/* Problems / Blockers */}
+            <div style={styles.formGroup}>
+
+              <label style={styles.formLabel}>
+                Problems / Blockers
+              </label>
+
+              <textarea
+                value={weeklyCheckin.blockers}
+                onChange={(event) =>
+                  handleWeeklyCheckinChange(
+                    'blockers',
+                    event.target.value
+                  )
+                }
+                placeholder="Enter blockers, one item per line"
+                style={styles.formTextarea}
+                rows="3"
+              />
+
+            </div>
+
+            {/* Next Week's Goals */}
+            <div style={styles.formGroup}>
+
+              <label style={styles.formLabel}>
+                Next Week's Goals
+              </label>
+
+              <textarea
+                value={weeklyCheckin.next_goals}
+                onChange={(event) =>
+                  handleWeeklyCheckinChange(
+                    'next_goals',
+                    event.target.value
+                  )
+                }
+                placeholder="Enter next week's goals, one item per line"
+                style={styles.formTextarea}
+                rows="3"
+                required
+              />
+
+            </div>
+
+            {/* Remarks */}
+            <div style={styles.formGroup}>
+
+              <label style={styles.formLabel}>
+                Remarks
+              </label>
+
+              <textarea
+                value={weeklyCheckin.remarks}
+                onChange={(event) =>
+                  handleWeeklyCheckinChange(
+                    'remarks',
+                    event.target.value
+                  )
+                }
+                placeholder="Add any additional remarks"
+                style={styles.formTextarea}
+                rows="3"
+              />
+
+            </div>
+
+            {/* Submit */}
+            <div style={styles.weeklyCheckinAction}>
+
+              <button
+                type="submit"
+                style={{
+                  ...styles.evaluateButton,
+                  opacity: isSubmittingWeeklyCheckin
+                    ? 0.7
+                    : 1,
+                  cursor: isSubmittingWeeklyCheckin
+                    ? 'not-allowed'
+                    : 'pointer'
+                }}
+                disabled={isSubmittingWeeklyCheckin}
+              >
+                {isSubmittingWeeklyCheckin
+                  ? 'Getting Mentor Guidance...'
+                  : 'Submit Weekly Check-in'}
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+        {/* AI Mentor Response */}
+        {mentorResult && (
+          <div style={styles.mentorResultContainer}>
+
+            <div style={styles.evaluationHeader}>
+
+              <div>
+                <h3 style={styles.sectionTitle}>
+                  AI Mentor Guidance
+                </h3>
+
+                <p style={styles.sectionSubtitle}>
+                  Guidance generated from your weekly check-in.
+                </p>
+              </div>
+
+            </div>
+
+            {mentorResult.overall_assessment && (
+              <div style={styles.evaluationBox}>
+
+                <span style={styles.evaluationLabel}>
+                  Overall Assessment
+                </span>
+
+                <p style={styles.evaluationText}>
+                  {mentorResult.overall_assessment}
+                </p>
+
+              </div>
+            )}
+
+            {Array.isArray(mentorResult.resolutions) &&
+              mentorResult.resolutions.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Resolutions
+                  </span>
+
+                  <ul style={styles.evaluationList}>
+                    {mentorResult.resolutions.map(
+                      (item, index) => (
+                        <li key={index}>
+                          {item}
+                        </li>
+                      )
+                    )}
+                  </ul>
+
+                </div>
+              )}
+
+            {Array.isArray(mentorResult.recommendations) &&
+              mentorResult.recommendations.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Recommendations
+                  </span>
+
+                  <ul style={styles.evaluationList}>
+                    {mentorResult.recommendations.map(
+                      (item, index) => (
+                        <li key={index}>
+                          {item}
+                        </li>
+                      )
+                    )}
+                  </ul>
+
+                </div>
+              )}
+
+            {Array.isArray(mentorResult.next_actions) &&
+              mentorResult.next_actions.length > 0 && (
+                <div style={styles.evaluationBox}>
+
+                  <span style={styles.evaluationLabel}>
+                    Next Actions
+                  </span>
+
+                  <ul style={styles.evaluationList}>
+                    {mentorResult.next_actions.map(
+                      (item, index) => (
+                        <li key={index}>
+                          {item}
+                        </li>
+                      )
+                    )}
+                  </ul>
+
+                </div>
+              )}
+
+            {mentorResult.plan_adjustment_required && (
+              <div style={styles.evaluationBox}>
+
+                <span style={styles.evaluationLabel}>
+                  Plan Adjustment
+                </span>
+
+                <p style={styles.evaluationText}>
+                  The AI Mentor recommends adjusting
+                  the current project plan.
+                </p>
+
+              </div>
+            )}
+
+          </div>
+        )}
 
         {/* AI Progress Evaluation Result */}
         {Object.keys(progressEvaluation).length > 0 && (
@@ -1156,12 +1499,73 @@ const styles = {
     lineHeight: '1.5'
   },
 
-  evaluationList: {
+    evaluationList: {
     margin: 0,
     paddingLeft: '18px',
     color: '#475569',
     fontSize: '12px',
     lineHeight: '1.6'
+  },
+
+  /* M3 Weekly Check-in */
+  weeklyCheckinContainer: {
+    borderTop: '1px solid #f1f5f9',
+    paddingTop: '18px',
+    marginTop: '18px'
+  },
+
+  formGroup: {
+    marginBottom: '13px'
+  },
+
+  formLabel: {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: '5px'
+  },
+
+  formInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '9px 10px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '7px',
+    fontSize: '12px',
+    color: '#334155',
+    backgroundColor: '#ffffff',
+    outline: 'none'
+  },
+
+  formTextarea: {
+    width: '100%',
+    boxSizing: 'border-box',
+    minHeight: '75px',
+    padding: '9px 10px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '7px',
+    fontSize: '12px',
+    color: '#334155',
+    backgroundColor: '#ffffff',
+    resize: 'vertical',
+    outline: 'none',
+    fontFamily: 'inherit',
+    lineHeight: '1.5'
+  },
+
+  weeklyCheckinAction: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginTop: '5px'
+  },
+
+  mentorResultContainer: {
+    marginTop: '18px',
+    padding: '15px',
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px'
   },
 
   /* Milestones */

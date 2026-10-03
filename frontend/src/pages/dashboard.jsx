@@ -41,6 +41,9 @@ const Dashboard = () => {
   const [isEvaluatingProgress, setIsEvaluatingProgress] =
     useState(false);
 
+  const [isSubmittingWeeklyCheckin, setIsSubmittingWeeklyCheckin] =
+    useState(false);
+
   // =====================================================
   // LOAD PROJECTS
   // =====================================================
@@ -933,6 +936,131 @@ const Dashboard = () => {
     }
   };
 
+
+
+  // =====================================================
+  // SUBMIT WEEKLY CHECK-IN TO AI MENTOR
+  // =====================================================
+
+    const handleWeeklyMentorSubmit = async (checkinData) => {
+    if (!selectedProject) {
+      alert('Please select a project first.');
+      return null;
+    }
+
+    try {
+      setIsSubmittingWeeklyCheckin(true);
+
+      console.log(
+        'SUBMITTING WEEKLY CHECK-IN:',
+        selectedProject.project_id,
+        checkinData
+      );
+
+      const response = await fetch(
+        `${API_BASE_URL}/ai/weekly-mentor`,
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type': 'application/json'
+          },
+
+          body: JSON.stringify({
+            project_id:
+              selectedProject.project_id,
+
+            week:
+              checkinData.week,
+
+            completed_work:
+              checkinData.completed_work,
+
+            current_progress:
+              checkinData.current_progress,
+
+            blockers:
+              checkinData.blockers,
+
+            next_goals:
+              checkinData.next_goals,
+
+            remarks:
+              checkinData.remarks
+          })
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        console.error(
+          'WEEKLY MENTOR ERROR:',
+          data
+        );
+
+        alert(
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(
+                data.detail,
+                null,
+                2
+              )
+        );
+
+        return null;
+      }
+
+      console.log(
+        'WEEKLY MENTOR RESULT:',
+        data
+      );
+
+      // Refresh project progress after
+      // the weekly check-in is successfully saved.
+      const latestProgress =
+        await loadProjectProgress(
+          selectedProject
+        );
+
+      setProjectProgress(
+        latestProgress
+      );
+
+      setSelectedProject(
+        (previousProject) =>
+          previousProject
+            ? {
+                ...previousProject,
+                progress: latestProgress
+              }
+            : previousProject
+      );
+
+      return data;
+
+    } catch (error) {
+      console.error(
+        'WEEKLY MENTOR FETCH ERROR:',
+        error
+      );
+
+      alert(
+        'Unable to connect to the weekly mentor service.'
+      );
+
+      return null;
+
+    } finally {
+      setIsSubmittingWeeklyCheckin(false);
+    }
+  };
+
+
+
+
   // =====================================================
   // STATUS BADGE
   // =====================================================
@@ -1365,6 +1493,14 @@ const Dashboard = () => {
 
             isEvaluatingProgress={
               isEvaluatingProgress
+            }
+
+            onSubmitWeeklyCheckin={
+              handleWeeklyMentorSubmit
+            }
+
+            isSubmittingWeeklyCheckin={
+              isSubmittingWeeklyCheckin
             }
           />
         )}
