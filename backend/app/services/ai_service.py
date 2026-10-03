@@ -266,74 +266,117 @@ def analyze_weekly_mentor_update(
         )
 
         # ----------------------------------------------------
-        # Get raw CrewAI output
+        # Get structured Pydantic output when available
         # ----------------------------------------------------
 
-        raw_output = result.tasks_output[0].raw.strip()
+        task_output = result.tasks_output[0]
+
+        evaluation_data = None
+
+        pydantic_output = getattr(
+            task_output,
+            "pydantic",
+            None
+        )
+
+        if pydantic_output is not None:
+
+            if hasattr(
+                pydantic_output,
+                "model_dump"
+            ):
+
+                evaluation_data = (
+                    pydantic_output.model_dump()
+                )
+
+            elif isinstance(
+                pydantic_output,
+                dict
+            ):
+
+                evaluation_data = dict(
+                    pydantic_output
+                )
 
         # ----------------------------------------------------
-        # Remove Markdown JSON fences if the LLM adds them
+        # Fall back to raw JSON parsing
         # ----------------------------------------------------
 
-        if raw_output.startswith("```json"):
+        if evaluation_data is None:
+
+            raw_output = str(
+                getattr(
+                    task_output,
+                    "raw",
+                    ""
+                )
+            ).strip()
+
+            # ------------------------------------------------
+            # Remove Markdown JSON fences
+            # ------------------------------------------------
+
+            if raw_output.startswith("```json"):
+
+                raw_output = raw_output[
+                    len("```json"):
+                ].strip()
+
+            if raw_output.startswith("```"):
+
+                raw_output = raw_output[
+                    len("```"):
+                ].strip()
+
+            if raw_output.endswith("```"):
+
+                raw_output = raw_output[
+                    :-len("```")
+                ].strip()
+
+            # ------------------------------------------------
+            # Extract only the JSON object
+            # ------------------------------------------------
+
+            start = raw_output.find("{")
+            end = raw_output.rfind("}")
+
+            if start == -1 or end == -1:
+
+                raise ValueError(
+                    "Weekly mentor did not return "
+                    "a valid JSON object."
+                )
 
             raw_output = raw_output[
-                len("```json"):
-            ].strip()
+                start:end + 1
+            ]
 
-        if raw_output.startswith("```"):
+            # ------------------------------------------------
+            # Parse JSON
+            # ------------------------------------------------
 
-            raw_output = raw_output[
-                len("```"):
-            ].strip()
+            try:
 
-        if raw_output.endswith("```"):
+                evaluation_data = json.loads(
+                    raw_output
+                )
 
-            raw_output = raw_output[
-                :-len("```")
-            ].strip()
+            except json.JSONDecodeError as json_error:
 
-        # ----------------------------------------------------
-        # Extract only the JSON object
-        # ----------------------------------------------------
+                print(
+                    "Weekly mentor returned invalid JSON."
+                )
 
-        start = raw_output.find("{")
-        end = raw_output.rfind("}")
+                print(
+                    f"Raw output:\n{raw_output}"
+                )
 
-        if start == -1 or end == -1:
-
-            raise ValueError(
-                "Weekly mentor did not return a valid JSON object."
-            )
-
-        raw_output = raw_output[
-            start:end + 1
-        ]
-
-        # ----------------------------------------------------
-        # Parse JSON
-        # ----------------------------------------------------
-
-        try:
-
-            evaluation_data = json.loads(
-                raw_output
-            )
-
-        except json.JSONDecodeError as json_error:
-
-            print(
-                "Weekly mentor returned invalid JSON."
-            )
-
-            print(
-                f"Raw output:\n{raw_output}"
-            )
-
-            raise ValueError(
-                f"Invalid JSON returned by weekly mentor: "
-                f"{json_error}"
-            )
+                raise ValueError(
+                    "Invalid JSON returned by weekly "
+                    f"mentor: {json_error}"
+                )
 
         # ----------------------------------------------------
         # Normalize list fields

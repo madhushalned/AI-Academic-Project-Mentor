@@ -16,7 +16,8 @@ from app.schemas.analysis_schema import (
     TechnologyRecommendation,
     MilestonePlan,
     RiskAssessment,
-    ProgressEvaluation
+    ProgressEvaluation,
+    MentorRiskAnalysis
 )
 
 
@@ -554,5 +555,8 @@ weekly_mentor_task = Task(
     next_actions.
     """,
 
-    agent=weekly_mentor_agent
+    agent=weekly_mentor_agent,
+
+    output_pydantic=MentorRiskAnalysis
+
 )
