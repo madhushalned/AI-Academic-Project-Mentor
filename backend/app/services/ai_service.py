@@ -429,15 +429,79 @@ def evaluate_project_progress(project_data: dict):
                 )
 
         # ----------------------------------------------------
-        # Calculate overall student progress
+        # Get planned milestone weeks
         # ----------------------------------------------------
 
-        if progress_values:
+        planned_weeks = []
+
+        for milestone in milestones:
+
+            if not isinstance(
+                milestone,
+                dict
+            ):
+                continue
+
+            week = milestone.get(
+                "week"
+            )
+
+            if week is not None:
+
+                try:
+                    week = int(week)
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    continue
+
+                planned_weeks.append(
+                    week
+                )
+
+        # Remove duplicate planned weeks
+        planned_weeks = list(
+            dict.fromkeys(
+                planned_weeks
+            )
+        )
+
+        # ----------------------------------------------------
+        # Determine completed weeks
+        #
+        # A week is completed only when its stored progress
+        # reaches 100%.
+        # ----------------------------------------------------
+
+        completed_weeks = []
+
+        for week in planned_weeks:
+
+            week_progress = progress_by_week.get(
+                week,
+                0
+            )
+
+            if week_progress >= 100:
+
+                completed_weeks.append(
+                    week
+                )
+
+        # ----------------------------------------------------
+        # Calculate overall project progress
+        #
+        # Overall progress is based on completed planned
+        # weeks, not the average of weekly progress values.
+        # ----------------------------------------------------
+
+        if planned_weeks:
 
             calculated_score = (
-                sum(progress_values)
-                / len(progress_values)
-            )
+                len(completed_weeks)
+                / len(planned_weeks)
+            ) * 100
 
         else:
 
@@ -447,10 +511,6 @@ def evaluate_project_progress(project_data: dict):
             calculated_score,
             2
         )
-
-        # ----------------------------------------------------
-        # Get planned milestone weeks
-        # ----------------------------------------------------
 
         planned_weeks = []
 
@@ -677,49 +737,39 @@ def analyze_weekly_mentor_update(
 
         result = weekly_mentor_crew.kickoff(
             inputs={
-
                 "title": project_data.get(
                     "title",
                     ""
                 ),
-
                 "description": project_data.get(
                     "description",
                     ""
                 ),
-
                 "domain": project_data.get(
                     "domain",
                     ""
                 ),
-
                 "milestones": milestones,
-
                 "week": checkin_data.get(
                     "week",
                     1
                 ),
-
                 "completed_work": checkin_data.get(
                     "completed_work",
                     []
                 ),
-
                 "current_progress": checkin_data.get(
                     "current_progress",
                     0
                 ),
-
                 "blockers": checkin_data.get(
                     "blockers",
                     []
                 ),
-
                 "next_goals": checkin_data.get(
                     "next_goals",
                     []
                 ),
-
                 "remarks": checkin_data.get(
                     "remarks"
                 )
@@ -727,88 +777,109 @@ def analyze_weekly_mentor_update(
         )
 
         # ----------------------------------------------------
-        # Get raw CrewAI output
+        # Prefer CrewAI's structured Pydantic output
+        # ----------------------------------------------------
+        # This avoids relying on Ollama returning perfectly valid
+        # JSON text. If the task is configured with a Pydantic
+        # output model, CrewAI has already parsed and validated it.
         # ----------------------------------------------------
 
-        raw_output = (
-            result.tasks_output[0].raw.strip()
+        task_output = result.tasks_output[0]
+        evaluation_data = None
+
+        pydantic_output = getattr(
+            task_output,
+            "pydantic",
+            None
         )
 
+        if pydantic_output is not None:
+            if hasattr(
+                pydantic_output,
+                "model_dump"
+            ):
+                evaluation_data = pydantic_output.model_dump()
+            elif isinstance(
+                pydantic_output,
+                dict
+            ):
+                evaluation_data = dict(
+                    pydantic_output
+                )
+
         # ----------------------------------------------------
-        # Remove Markdown JSON fences
+        # Fallback to raw output when structured output is not
+        # available
         # ----------------------------------------------------
 
-        if raw_output.startswith(
-            "```json"
-        ):
+        if evaluation_data is None:
+
+            raw_output = str(
+                getattr(
+                    task_output,
+                    "raw",
+                    ""
+                )
+            ).strip()
+
+            # Remove Markdown JSON fences
+            if raw_output.startswith(
+                "```json"
+            ):
+                raw_output = raw_output[
+                    len("```json"):
+                ].strip()
+
+            if raw_output.startswith(
+                "```"
+            ):
+                raw_output = raw_output[
+                    len("```"):
+                ].strip()
+
+            if raw_output.endswith(
+                "```"
+            ):
+                raw_output = raw_output[
+                    :-len("```")
+                ].strip()
+
+            # Extract JSON object
+            start = raw_output.find(
+                "{"
+            )
+
+            end = raw_output.rfind(
+                "}"
+            )
+
+            if start == -1 or end == -1:
+                raise ValueError(
+                    "Weekly mentor did not return "
+                    "a valid JSON object."
+                )
 
             raw_output = raw_output[
-                len("```json"):
-            ].strip()
+                start:end + 1
+            ]
 
-        if raw_output.startswith(
-            "```"
-        ):
+            # Parse JSON
+            try:
+                evaluation_data = json.loads(
+                    raw_output
+                )
 
-            raw_output = raw_output[
-                len("```"):
-            ].strip()
-
-        if raw_output.endswith(
-            "```"
-        ):
-
-            raw_output = raw_output[
-                :-len("```")
-            ].strip()
-
-        # ----------------------------------------------------
-        # Extract JSON object
-        # ----------------------------------------------------
-
-        start = raw_output.find(
-            "{"
-        )
-
-        end = raw_output.rfind(
-            "}"
-        )
-
-        if start == -1 or end == -1:
-
-            raise ValueError(
-                "Weekly mentor did not return "
-                "a valid JSON object."
-            )
-
-        raw_output = raw_output[
-            start:end + 1
-        ]
-
-        # ----------------------------------------------------
-        # Parse JSON
-        # ----------------------------------------------------
-
-        try:
-
-            evaluation_data = json.loads(
-                raw_output
-            )
-
-        except json.JSONDecodeError as json_error:
-
-            print(
-                "Weekly mentor returned invalid JSON."
-            )
-
-            print(
-                f"Raw output:\n{raw_output}"
-            )
-
-            raise ValueError(
-                "Invalid JSON returned by weekly "
-                f"mentor: {json_error}"
-            )
+            except json.JSONDecodeError as json_error:
+                print(
+                    "Weekly mentor returned invalid JSON."
+                )
+                print(
+                    f"Raw output:\n{raw_output}"
+                )
+                raise ValueError(
+                    "Invalid JSON returned by weekly "
+                    f"mentor: {json_error}"
+                )
 
         # ----------------------------------------------------
         # Normalize list fields
@@ -833,14 +904,20 @@ def analyze_weekly_mentor_update(
                 value,
                 str
             ):
-
                 evaluation_data[field] = [
                     value
                 ]
 
             elif value is None:
-
                 evaluation_data[field] = []
+
+            elif not isinstance(
+                value,
+                list
+            ):
+                evaluation_data[field] = [
+                    str(value)
+                ]
 
         # ----------------------------------------------------
         # Normalize plan adjustment flag
@@ -855,16 +932,34 @@ def analyze_weekly_mentor_update(
             plan_adjustment,
             str
         ):
-
             evaluation_data[
                 "plan_adjustment_required"
             ] = (
-                plan_adjustment.lower()
+                plan_adjustment.strip().lower()
                 in [
                     "true",
                     "yes",
                     "1"
                 ]
+            )
+
+        # ----------------------------------------------------
+        # Normalize overall assessment
+        # ----------------------------------------------------
+
+        if not isinstance(
+            evaluation_data.get(
+                "overall_assessment"
+            ),
+            str
+        ):
+            evaluation_data[
+                "overall_assessment"
+            ] = str(
+                evaluation_data.get(
+                    "overall_assessment",
+                    ""
+                )
             )
 
         # ----------------------------------------------------

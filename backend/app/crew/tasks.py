@@ -19,7 +19,8 @@ from app.schemas.analysis_schema import (
     TechnologyRecommendation,
     MilestonePlan,
     RiskAssessment,
-    ProgressEvaluation
+    ProgressEvaluation,
+    MentorRiskAnalysis
 )
 
 
@@ -546,7 +547,7 @@ weekly_mentor_task = Task(
     """,
 
     expected_output="""
-    A valid JSON object containing:
+    A structured weekly mentor analysis containing:
     overall_assessment,
     identified_risks,
     blockers,
@@ -557,7 +558,9 @@ weekly_mentor_task = Task(
     next_actions.
     """,
 
-    agent=weekly_mentor_agent
+    agent=weekly_mentor_agent,
+
+    output_pydantic=MentorRiskAnalysis
 )
 
 # ============================================================
