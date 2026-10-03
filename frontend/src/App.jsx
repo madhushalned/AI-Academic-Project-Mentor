@@ -1,4 +1,5 @@
 import React from "react";
+
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +12,7 @@ import Login from "./pages/login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/Forgotpassword";
 import Dashboard from "./pages/dashboard";
+import Profile from "./pages/Profile";
 
 import MilestoneManagement from "./pages/MilestoneManagement";
 import TimelineManagement from "./pages/TimelineManagement";
@@ -51,6 +53,12 @@ function App() {
         <Route
           path="/dashboard"
           element={<Dashboard />}
+        />
+
+        {/* Profile */}
+        <Route
+          path="/profile"
+          element={<Profile />}
         />
 
         {/* Milestone Management */}
