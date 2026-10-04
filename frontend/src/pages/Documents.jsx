@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { jsPDF } from "jspdf";
 import IntegratedLayout from "../components/IntegratedLayout";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -70,7 +71,9 @@ const Documents = () => {
         );
       }
 
-      setContent(data.content || "No document content was returned.");
+      setContent(
+        data.content || "No document content was returned."
+      );
     } catch (err) {
       setError(
         err.message || "Unable to generate the document."
@@ -78,6 +81,83 @@ const Documents = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!content) {
+      setError("Please generate a document before downloading.");
+      return;
+    }
+
+    const selectedDocument = DOCUMENT_TYPES.find(
+      (document) => document.value === documentType
+    );
+
+    const title = selectedDocument?.label || "Project Document";
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    const marginLeft = 20;
+    const marginRight = 20;
+    const topMargin = 20;
+    const bottomMargin = 20;
+
+    const usableWidth = pageWidth - marginLeft - marginRight;
+
+    // PDF title
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text(title, pageWidth / 2, topMargin, {
+      align: "center"
+    });
+
+    // Project information
+    const projectId = getProjectId();
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+
+    if (projectId) {
+      pdf.text(
+        `Project ID: ${projectId}`,
+        marginLeft,
+        topMargin + 12
+      );
+    }
+
+    // Document content
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+
+    const lines = pdf.splitTextToSize(
+      content,
+      usableWidth
+    );
+
+    let y = topMargin + 25;
+    const lineHeight = 6;
+
+    lines.forEach((line) => {
+      if (y > pageHeight - bottomMargin) {
+        pdf.addPage();
+        y = topMargin;
+      }
+
+      pdf.text(line, marginLeft, y);
+      y += lineHeight;
+    });
+
+    // File name
+    const fileName = `${documentType}.pdf`;
+
+    pdf.save(fileName);
   };
 
   return (
@@ -89,6 +169,7 @@ const Documents = () => {
           margin: "0 auto"
         }}
       >
+        {/* Page Header */}
         <div style={{ marginBottom: "24px" }}>
           <h1
             style={{
@@ -107,11 +188,12 @@ const Documents = () => {
               color: "#64748b"
             }}
           >
-            Generate academic documents using your project information,
-            milestones, risks, and progress.
+            Generate academic documents using your project
+            information, milestones, risks, and progress.
           </p>
         </div>
 
+        {/* Document Generator */}
         <div
           style={{
             backgroundColor: "#ffffff",
@@ -135,7 +217,11 @@ const Documents = () => {
 
           <select
             value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
+            onChange={(e) => {
+              setDocumentType(e.target.value);
+              setContent("");
+              setError("");
+            }}
             disabled={loading}
             style={{
               width: "100%",
@@ -197,6 +283,7 @@ const Documents = () => {
           </button>
         </div>
 
+        {/* Error */}
         {error && (
           <div
             style={{
@@ -212,6 +299,7 @@ const Documents = () => {
           </div>
         )}
 
+        {/* Generated Document */}
         {content && (
           <div
             style={{
@@ -221,12 +309,14 @@ const Documents = () => {
               padding: "24px"
             }}
           >
+            {/* Header + Download Button */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "16px"
+                gap: "16px",
+                marginBottom: "20px"
               }}
             >
               <h2
@@ -238,8 +328,27 @@ const Documents = () => {
               >
                 Generated Document
               </h2>
+
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                style={{
+                  padding: "10px 18px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: "#16a34a",
+                  color: "#ffffff",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                Download PDF
+              </button>
             </div>
 
+            {/* Document Content */}
             <div
               style={{
                 whiteSpace: "pre-wrap",
