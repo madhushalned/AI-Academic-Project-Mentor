@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -46,6 +45,7 @@ class WeeklyMentorRequest(BaseModel):
     blockers: list[str] = []
     next_goals: list[str] = []
     remarks: str | None = None
+
 
 class DocumentGenerationRequest(BaseModel):
     project_id: str
@@ -97,7 +97,7 @@ def evaluate_progress_endpoint(
     2. Get saved progress from the project document.
     3. Attach progress to project data.
     4. Send project + progress to AI evaluator.
-    5. Save and return the AI evaluation.
+    5. Return the AI evaluation.
     """
 
     # --------------------------------------------------------
@@ -198,8 +198,16 @@ def weekly_mentor_endpoint(
     2. Build weekly check-in data.
     3. Save student check-in.
     4. Run AI mentor analysis.
-    5. Save mentor/risk analysis.
-    6. Return the result.
+    5. Determine current week status.
+    6. Clear resolved/completed risks from CURRENT analysis.
+    7. Save project progress.
+    8. Save current mentor/risk analysis.
+    9. Return the result.
+
+    IMPORTANT:
+    Historical weekly check-ins are NOT deleted.
+
+    Only the CURRENT mentor/risk analysis is updated.
     """
 
     # --------------------------------------------------------
@@ -248,19 +256,122 @@ def weekly_mentor_endpoint(
             )
 
         # ----------------------------------------------------
-        # Step 2: Update main project progress
+        # Step 4: Run AI Mentor analysis
+        # ----------------------------------------------------
+
+        analysis = analyze_weekly_mentor_update(
+            project,
+            checkin_data
+        )
+
+        # ----------------------------------------------------
+        # Step 5: Read AI identified risks
+        # ----------------------------------------------------
+
+        identified_risks = analysis.get(
+            "identified_risks",
+            []
+        )
+
+        if not isinstance(
+            identified_risks,
+            list
+        ):
+            identified_risks = [identified_risks]
+
+        # Remove empty/null risk values
+        identified_risks = [
+            str(risk).strip()
+            for risk in identified_risks
+            if risk is not None
+            and str(risk).strip()
+        ]
+
+        has_risk = len(identified_risks) > 0
+
+        # ----------------------------------------------------
+        # Step 6: Determine current week status
+        # ----------------------------------------------------
+        #
+        # Status rules:
+        #
+        # 100%                 -> Completed
+        # Risk identified      -> At Risk
+        # 1-99%, no risk       -> In Progress
+        # 0%, no risk          -> Not Started
+        #
+        # ----------------------------------------------------
+
+        if request.current_progress >= 100:
+
+            progress_status = "Completed"
+
+        elif has_risk:
+
+            progress_status = "At Risk"
+
+        elif request.current_progress > 0:
+
+            progress_status = "In Progress"
+
+        else:
+
+            progress_status = "Not Started"
+
+        # ----------------------------------------------------
+        # Step 7: Clear CURRENT risk when resolved/completed
+        # ----------------------------------------------------
+        #
+        # Historical check-ins remain stored.
+        #
+        # Only the latest/current mentor analysis is changed.
+        #
+        # If:
+        #
+        #   - week is completed
+        #   OR
+        #   - AI no longer identifies a risk
+        #
+        # then the current active risk is removed.
+        #
+        # ----------------------------------------------------
+
+        if progress_status == "Completed":
+
+            # Week completed:
+            # No active risk should remain.
+
+            analysis["identified_risks"] = []
+            analysis["blockers"] = []
+
+        elif not has_risk:
+
+            # Risk has been resolved:
+            # Remove old active risk.
+
+            analysis["identified_risks"] = []
+
+        else:
+
+            # Risk still exists:
+            # Keep the current risks.
+
+            analysis["identified_risks"] = identified_risks
+
+        # ----------------------------------------------------
+        # Step 8: Build progress data
         # ----------------------------------------------------
 
         progress_data = {
             "week": request.week,
-            "status": (
-                "Completed"
-                if request.current_progress >= 100
-                else "In Progress"
-            ),
+            "status": progress_status,
             "progress": request.current_progress,
             "remarks": request.remarks
         }
+
+        # ----------------------------------------------------
+        # Step 9: Save project progress
+        # ----------------------------------------------------
 
         progress_updated = update_project_progress(
             request.project_id,
@@ -275,16 +386,7 @@ def weekly_mentor_endpoint(
             )
 
         # ----------------------------------------------------
-        # Step 3: Run AI Mentor analysis
-        # ----------------------------------------------------
-
-        analysis = analyze_weekly_mentor_update(
-            project,
-            checkin_data
-        )
-
-        # ----------------------------------------------------
-        # Step 5: Save AI mentor analysis
+        # Step 10: Save CURRENT mentor/risk analysis
         # ----------------------------------------------------
 
         saved_analysis = update_mentor_risk_analysis(
@@ -300,7 +402,7 @@ def weekly_mentor_endpoint(
             )
 
         # ----------------------------------------------------
-        # Step 5: Return result
+        # Step 11: Return result
         # ----------------------------------------------------
 
         return {
@@ -325,6 +427,8 @@ def weekly_mentor_endpoint(
             status_code=500,
             detail=f"Weekly mentor analysis failed: {str(e)}"
         )
+
+
 # ============================================================
 # DOCUMENT GENERATION
 # ============================================================
@@ -344,6 +448,7 @@ def generate_document_endpoint(
     }
 
     if request.document_type not in allowed_types:
+
         raise HTTPException(
             status_code=400,
             detail=(
@@ -352,15 +457,19 @@ def generate_document_endpoint(
             )
         )
 
-    project = get_project_by_id(request.project_id)
+    project = get_project_by_id(
+        request.project_id
+    )
 
     if not project:
+
         raise HTTPException(
             status_code=404,
             detail="Project not found."
         )
 
     try:
+
         result = generate_project_document(
             project_data=project,
             document_type=request.document_type
@@ -373,13 +482,17 @@ def generate_document_endpoint(
         }
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc)
         )
 
     except Exception as exc:
-        print(f"Document generation failed: {exc}")
+
+        print(
+            f"Document generation failed: {exc}"
+        )
 
         raise HTTPException(
             status_code=500,

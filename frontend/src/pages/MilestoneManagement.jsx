@@ -17,17 +17,26 @@ export default function MilestoneManagement() {
   // Resolve the active project
   // ---------------------------------------------------------
   const resolveProjectId = async () => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(
+      window.location.search
+    );
 
-    const queryProjectId = params.get("project_id");
+    const queryProjectId =
+      params.get("project_id");
 
     if (queryProjectId) {
-      localStorage.setItem("activeProjectId", queryProjectId);
+      localStorage.setItem(
+        "activeProjectId",
+        queryProjectId
+      );
+
       return queryProjectId;
     }
 
     const storedProjectId =
-      localStorage.getItem("activeProjectId");
+      localStorage.getItem(
+        "activeProjectId"
+      );
 
     if (storedProjectId) {
       return storedProjectId;
@@ -56,18 +65,21 @@ export default function MilestoneManagement() {
         return null;
       }
 
-      const studentProjects = projects.filter(
-        (project) =>
-          String(project.student_id) ===
-          String(student.student_id)
-      );
+      const studentProjects =
+        projects.filter(
+          (project) =>
+            String(project.student_id) ===
+            String(student.student_id)
+        );
 
       if (studentProjects.length === 0) {
         return null;
       }
 
       const latestProject =
-        studentProjects[studentProjects.length - 1];
+        studentProjects[
+          studentProjects.length - 1
+        ];
 
       localStorage.setItem(
         "activeProjectId",
@@ -75,6 +87,7 @@ export default function MilestoneManagement() {
       );
 
       return latestProject.project_id;
+
     } catch (err) {
       console.error(
         "PROJECT ID RESOLUTION ERROR:",
@@ -100,6 +113,7 @@ export default function MilestoneManagement() {
         setError(
           "No project is available. Please open a project from the Dashboard first."
         );
+
         setLoading(false);
         return;
       }
@@ -154,6 +168,9 @@ export default function MilestoneManagement() {
           ? progressData.progress
           : [];
 
+      // -------------------------------------------------------
+      // Create quick lookup by week
+      // -------------------------------------------------------
       const progressByWeek = {};
 
       backendProgress.forEach((item) => {
@@ -162,6 +179,52 @@ export default function MilestoneManagement() {
         ] = item;
       });
 
+      // -------------------------------------------------------
+      // Helper: determine milestone status
+      // -------------------------------------------------------
+      const getMilestoneStatus = (
+        progressItem
+      ) => {
+        const progressValue =
+          Number(
+            progressItem?.progress
+          ) || 0;
+
+        const rawStatus =
+          String(
+            progressItem?.status || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        // Completed has highest priority
+        if (
+          progressValue >= 100 ||
+          rawStatus === "completed"
+        ) {
+          return "Completed";
+        }
+
+        // IMPORTANT:
+        // Preserve backend At Risk status
+        if (
+          rawStatus === "at risk" ||
+          rawStatus === "at-risk"
+        ) {
+          return "At Risk";
+        }
+
+        // Partial progress without risk
+        if (progressValue > 0) {
+          return "In Progress";
+        }
+
+        return "Not Started";
+      };
+
+      // ---------------------------------------------------------
+      // Map milestones with actual backend progress
+      // ---------------------------------------------------------
       const mappedMilestones =
         backendMilestones.map(
           (milestone, index) => {
@@ -172,13 +235,26 @@ export default function MilestoneManagement() {
             const progressItem =
               progressByWeek[week];
 
-            const isCompleted =
+            const progressValue =
               Number(
                 progressItem?.progress
-              ) >= 100 ||
-              String(
-                progressItem?.status || ""
-              ).toLowerCase() === "completed";
+              ) || 0;
+
+            const status =
+              getMilestoneStatus(
+                progressItem
+              );
+
+            const weekProgress =
+              status === "Completed"
+                ? 100
+                : Math.max(
+                    0,
+                    Math.min(
+                      99,
+                      progressValue
+                    )
+                  );
 
             const priority =
               Array.isArray(
@@ -193,17 +269,28 @@ export default function MilestoneManagement() {
                 milestone.tasks
               )
                 ? milestone.tasks.map(
-                    (task, taskIndex) => ({
+                    (
+                      task,
+                      taskIndex
+                    ) => ({
                       id: `${week}-${taskIndex}`,
                       title: task,
-                      done: isCompleted
+
+                      // A task is considered
+                      // completed only when
+                      // the entire week is completed.
+                      done:
+                        status ===
+                        "Completed"
                     })
                   )
                 : [];
 
             return {
               id: week,
+
               week,
+
               title:
                 milestone.title ||
                 `Week ${week}`,
@@ -212,21 +299,19 @@ export default function MilestoneManagement() {
                 Array.isArray(
                   milestone.deliverables
                 ) &&
-                milestone.deliverables.length > 0
+                milestone.deliverables.length >
+                  0
                   ? milestone.deliverables.join(
                       ", "
                     )
                   : "AI-generated milestone plan.",
 
-              status: isCompleted
-                ? "Completed"
-                : "Not Started",
+              status,
 
               priority,
 
-              progress: isCompleted
-                ? 100
-                : 0,
+              progress:
+                weekProgress,
 
               timeline:
                 milestone.timeline ||
@@ -255,7 +340,10 @@ export default function MilestoneManagement() {
           }
         );
 
-      setMilestones(mappedMilestones);
+      setMilestones(
+        mappedMilestones
+      );
+
     } catch (err) {
       console.error(
         "MILESTONE LOAD ERROR:",
@@ -268,6 +356,7 @@ export default function MilestoneManagement() {
       );
 
       setMilestones([]);
+
     } finally {
       setLoading(false);
     }
@@ -280,7 +369,9 @@ export default function MilestoneManagement() {
   // ---------------------------------------------------------
   // Open milestone
   // ---------------------------------------------------------
-  const openMilestone = (milestone) => {
+  const openMilestone = (
+    milestone
+  ) => {
     setSelected(milestone);
   };
 
@@ -296,7 +387,8 @@ export default function MilestoneManagement() {
       ? milestones
       : milestones.filter(
           (milestone) =>
-            milestone.status === filter
+            milestone.status ===
+            filter
         );
 
   // ---------------------------------------------------------
@@ -320,6 +412,7 @@ export default function MilestoneManagement() {
   if (selected) {
     return (
       <div className="milestone-detail">
+
         <button
           className="btn btn-ghost back-btn"
           onClick={closeMilestone}
@@ -328,16 +421,20 @@ export default function MilestoneManagement() {
             name="arrowLeft"
             size={18}
           />
+
           Back to Milestones
         </button>
 
         <div className="milestone-detail-head">
+
           <div>
             <span className="week-badge">
               Week {selected.week}
             </span>
 
-            <h2>{selected.title}</h2>
+            <h2>
+              {selected.title}
+            </h2>
 
             <p className="milestone-detail-desc">
               {selected.description}
@@ -345,11 +442,15 @@ export default function MilestoneManagement() {
           </div>
 
           <StatusBadge
-            status={selected.status}
+            status={
+              selected.status
+            }
           />
+
         </div>
 
         <div className="milestone-detail-meta">
+
           <div className="meta-item">
             <span className="meta-label">
               Timeline
@@ -390,51 +491,76 @@ export default function MilestoneManagement() {
             </span>
 
             <span className="meta-value">
-              {selected.tasks.filter(
-                (task) => task.done
-              ).length}
+              {
+                selected.tasks.filter(
+                  (task) =>
+                    task.done
+                ).length
+              }
               /
-              {selected.tasks.length}
+              {
+                selected.tasks.length
+              }
             </span>
           </div>
+
         </div>
 
         <div className="milestone-detail-grid">
+
           <section className="panel">
+
             <div className="panel-head">
-              <h3>Milestone Progress</h3>
+              <h3>
+                Milestone Progress
+              </h3>
             </div>
 
             <div className="milestone-card-progress">
+
               <div className="milestone-card-progress-head">
+
                 <span>
-                  Week {selected.week}
+                  Week{" "}
+                  {selected.week}
                 </span>
 
                 <span>
                   {selected.progress}%
                 </span>
+
               </div>
 
               <div className="progress-bar">
+
                 <div
                   className="progress-bar-fill"
                   style={{
                     width: `${selected.progress}%`
                   }}
                 />
+
               </div>
+
             </div>
 
             <div className="panel-section">
-              <h4>Dependencies</h4>
 
-              {selected.dependencies.length >
-              0 ? (
+              <h4>
+                Dependencies
+              </h4>
+
+              {selected.dependencies
+                .length > 0 ? (
                 <ul>
                   {selected.dependencies.map(
-                    (dependency, index) => (
-                      <li key={index}>
+                    (
+                      dependency,
+                      index
+                    ) => (
+                      <li
+                        key={index}
+                      >
                         {dependency}
                       </li>
                     )
@@ -445,17 +571,26 @@ export default function MilestoneManagement() {
                   No dependencies.
                 </p>
               )}
+
             </div>
 
             <div className="panel-section">
-              <h4>Deliverables</h4>
 
-              {selected.deliverables.length >
-              0 ? (
+              <h4>
+                Deliverables
+              </h4>
+
+              {selected.deliverables
+                .length > 0 ? (
                 <ul>
                   {selected.deliverables.map(
-                    (deliverable, index) => (
-                      <li key={index}>
+                    (
+                      deliverable,
+                      index
+                    ) => (
+                      <li
+                        key={index}
+                      >
                         {deliverable}
                       </li>
                     )
@@ -466,24 +601,37 @@ export default function MilestoneManagement() {
                   No deliverables listed.
                 </p>
               )}
+
             </div>
 
             {selected.remarks && (
               <div className="panel-section">
-                <h4>Progress Remarks</h4>
+
+                <h4>
+                  Progress Remarks
+                </h4>
+
                 <p>
                   {selected.remarks}
                 </p>
+
               </div>
             )}
+
           </section>
 
           <section className="panel">
+
             <TaskList
-              tasks={selected.tasks}
+              tasks={
+                selected.tasks
+              }
             />
+
           </section>
+
         </div>
+
       </div>
     );
   }
@@ -493,15 +641,22 @@ export default function MilestoneManagement() {
   // ---------------------------------------------------------
   return (
     <div className="milestone-management">
+
       {error && (
         <div className="panel">
+
           <p className="panel-empty">
             {error}
           </p>
+
         </div>
       )}
 
+      {/* =====================================================
+          FILTERS
+          ===================================================== */}
       <div className="filter-bar">
+
         {[
           "All",
           "Not Started",
@@ -509,6 +664,7 @@ export default function MilestoneManagement() {
           "Completed",
           "At Risk"
         ].map((status) => (
+
           <button
             key={status}
             className={`filter-chip ${
@@ -522,25 +678,40 @@ export default function MilestoneManagement() {
           >
             {status}
           </button>
+
         ))}
+
       </div>
 
+      {/* =====================================================
+          MILESTONE GRID
+          ===================================================== */}
       <div className="milestone-grid">
-        {filtered.map((milestone) => (
-          <MilestoneCard
-            key={milestone.id}
-            milestone={milestone}
-            onView={openMilestone}
-          />
-        ))}
+
+        {filtered.map(
+          (milestone) => (
+
+            <MilestoneCard
+              key={milestone.id}
+              milestone={milestone}
+              onView={
+                openMilestone
+              }
+            />
+
+          )
+        )}
+
       </div>
 
       {filtered.length === 0 &&
         !error && (
           <p className="panel-empty">
-            No milestones match this filter.
+            No milestones match this
+            filter.
           </p>
         )}
+
     </div>
   );
 }

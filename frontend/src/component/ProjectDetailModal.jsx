@@ -187,15 +187,23 @@ const ProjectDetailModal = ({
   // =====================================================
   // GET WEEK PROGRESS
   //
-  // A week is now only:
-  // 0% = Not Completed
-  // 100% = Completed
+  // Weekly progress shows the actual saved progress value.
+  //
+  // Examples:
+  // 0%    = Not Started
+  // 40%   = In Progress
+  // 99%   = In Progress
+  // 100%  = Completed
+  //
+  // IMPORTANT:
+  // Overall project progress is still calculated separately
+  // using only COMPLETED weeks.
   // =====================================================
 
   const getWeekProgress = (week) => {
     const saved = getSavedProgressForWeek(week);
 
-    return isCompletedProgressItem(saved) ? 100 : 0;
+    return getProgressValue(saved);
   };
 
   // =====================================================
@@ -213,9 +221,18 @@ const ProjectDetailModal = ({
   // =====================================================
 
   const getWeekStatus = (week) => {
-    return isWeekCompleted(week)
-      ? 'Completed'
-      : 'Not Started';
+    const saved = getSavedProgressForWeek(week);
+    const progress = getProgressValue(saved);
+
+    if (isCompletedProgressItem(saved)) {
+      return 'Completed';
+    }
+
+    if (progress > 0) {
+      return 'In Progress';
+    }
+
+    return 'Not Started';
   };
 
   // =====================================================
@@ -700,9 +717,11 @@ const ProjectDetailModal = ({
 
                       <span
                         className={`week-status ${
-                          completed
+                          weekStatus === 'Completed'
                             ? 'completed'
-                            : 'not-started'
+                            : weekStatus === 'In Progress'
+                              ? 'in-progress'
+                              : 'not-started'
                         }`}
                       >
                         {weekStatus}
@@ -1210,6 +1229,11 @@ const ProjectDetailModal = ({
         .week-status.not-started {
           background: #f3f4f6;
           color: #4b5563;
+        }
+
+        .week-status.in-progress {
+          background: #fef3c7;
+          color: #92400e;
         }
 
         .milestone-description {

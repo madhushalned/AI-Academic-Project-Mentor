@@ -131,6 +131,16 @@ const WeeklyMentor = () => {
         }
 
         setCurrentWeek(selectedWeek);
+
+        // -------------------------------------------------
+        // Restore saved AI mentor feedback after refresh
+        // -------------------------------------------------
+
+        if (data.mentor_risk_analysis) {
+          setFeedback({
+            mentor_analysis: data.mentor_risk_analysis
+          });
+        }
       } catch (err) {
         console.error("Project Load Error:", err);
         setError(err.message);

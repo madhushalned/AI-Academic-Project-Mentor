@@ -6,6 +6,7 @@ import IdeaSubmissionModal from '../component/ideaSubmission';
 import AIAnalysis from '../component/AIAnalysis';
 import ProjectDetailModal from '../component/ProjectDetailModal';
 
+
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const ACTIVE_PROJECT_STORAGE_KEY = 'activeProjectId';
 
@@ -192,29 +193,41 @@ const Dashboard = () => {
           0
       );
 
+      const safeProgress = Math.max(
+        0,
+        Math.min(100, currentProgress)
+      );
+
       const isCompleted =
         String(
           item?.status || ''
         ).toLowerCase() ===
           'completed' ||
-        currentProgress >= 100;
+        safeProgress >= 100;
+
+      const normalizedProgress =
+        isCompleted
+          ? 100
+          : safeProgress;
+
+      const status = isCompleted
+        ? 'Completed'
+        : normalizedProgress > 0
+        ? 'In Progress'
+        : 'Not Started';
 
       return {
         ...item,
 
         week: Number(item?.week),
 
-        status: isCompleted
-          ? 'Completed'
-          : 'Not Started',
+        status,
 
-        current_progress: isCompleted
-          ? 100
-          : 0,
+        current_progress:
+          normalizedProgress,
 
-        progress: isCompleted
-          ? 100
-          : 0
+        progress:
+          normalizedProgress
       };
     });
   };

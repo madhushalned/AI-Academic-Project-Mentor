@@ -43,21 +43,11 @@ const AIAnalysis = ({ project, onClose }) => {
 
           <div style={styles.infoItem}>
             <span style={styles.infoLabel}>
-              Description
+              Project Description / Problem Statement
             </span>
 
             <p style={styles.infoText}>
               {project.description || 'Not provided'}
-            </p>
-          </div>
-
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>
-              Problem Statement
-            </span>
-
-            <p style={styles.infoText}>
-              {project.problemStatement || 'Not provided'}
             </p>
           </div>
 

@@ -88,6 +88,7 @@ export default function TimelineManagement() {
       );
 
       return latestProject.project_id;
+
     } catch (err) {
       console.error(
         "PROJECT ID RESOLUTION ERROR:",
@@ -168,6 +169,9 @@ export default function TimelineManagement() {
           ? progressData.progress
           : [];
 
+      // -------------------------------------------------------
+      // Create quick lookup by week
+      // -------------------------------------------------------
       const progressByWeek = {};
 
       backendProgress.forEach((item) => {
@@ -176,6 +180,51 @@ export default function TimelineManagement() {
         ] = item;
       });
 
+      // -------------------------------------------------------
+      // Helper: Convert backend status to UI status
+      // -------------------------------------------------------
+      const getWeekStatus = (
+        progressItem
+      ) => {
+        const progressValue =
+          Number(
+            progressItem?.progress
+          ) || 0;
+
+        const rawStatus =
+          String(
+            progressItem?.status || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        // Completed has highest priority
+        if (
+          progressValue >= 100 ||
+          rawStatus === "completed"
+        ) {
+          return "Completed";
+        }
+
+        // Preserve backend At Risk status
+        if (
+          rawStatus === "at risk" ||
+          rawStatus === "at-risk"
+        ) {
+          return "At Risk";
+        }
+
+        // Partial progress without risk
+        if (progressValue > 0) {
+          return "In Progress";
+        }
+
+        return "Not Started";
+      };
+
+      // ---------------------------------------------------------
+      // Map timeline weeks
+      // ---------------------------------------------------------
       const mappedWeeks =
         backendMilestones.map(
           (milestone, index) => {
@@ -186,20 +235,26 @@ export default function TimelineManagement() {
             const progressItem =
               progressByWeek[week];
 
-            const isCompleted =
+            const progressValue =
               Number(
                 progressItem?.progress
-              ) >= 100 ||
-              String(
-                progressItem?.status || ""
-              ).toLowerCase() === "completed";
+              ) || 0;
+
+            const status =
+              getWeekStatus(
+                progressItem
+              );
 
             const weekProgress =
-              isCompleted ? 100 : 0;
-
-            const status = isCompleted
-              ? "Completed"
-              : "Not Started";
+              status === "Completed"
+                ? 100
+                : Math.max(
+                    0,
+                    Math.min(
+                      99,
+                      progressValue
+                    )
+                  );
 
             const activities =
               Array.isArray(
@@ -217,7 +272,8 @@ export default function TimelineManagement() {
 
               status,
 
-              progress: weekProgress,
+              progress:
+                weekProgress,
 
               dateRange:
                 milestone.timeline ||
@@ -232,6 +288,9 @@ export default function TimelineManagement() {
           }
         );
 
+      // ---------------------------------------------------------
+      // Map linked milestones
+      // ---------------------------------------------------------
       const mappedMilestones =
         backendMilestones.map(
           (milestone, index) => {
@@ -242,34 +301,47 @@ export default function TimelineManagement() {
             const progressItem =
               progressByWeek[week];
 
-            const isCompleted =
+            const progressValue =
               Number(
                 progressItem?.progress
-              ) >= 100 ||
-              String(
-                progressItem?.status || ""
-              ).toLowerCase() === "completed";
+              ) || 0;
+
+            const status =
+              getWeekStatus(
+                progressItem
+              );
+
+            const weekProgress =
+              status === "Completed"
+                ? 100
+                : Math.max(
+                    0,
+                    Math.min(
+                      99,
+                      progressValue
+                    )
+                  );
 
             return {
               id: week,
+
               week,
 
               title:
                 milestone.title ||
                 `Week ${week}`,
 
-              status: isCompleted
-                ? "Completed"
-                : "Not Started",
+              status,
 
               progress:
-                isCompleted ? 100 : 0
+                weekProgress
             };
           }
         );
 
       setWeeks(mappedWeeks);
       setMilestones(mappedMilestones);
+
     } catch (err) {
       console.error(
         "TIMELINE LOAD ERROR:",
@@ -283,6 +355,7 @@ export default function TimelineManagement() {
 
       setWeeks([]);
       setMilestones([]);
+
     } finally {
       setLoading(false);
     }
@@ -316,10 +389,14 @@ export default function TimelineManagement() {
         week.status === "At Risk"
     ).length;
 
+  // Overall progress is based on completed weeks only.
   const overallProgress =
     total > 0
-      ? Math.round(
-          (completed / total) * 100
+      ? Number(
+          (
+            (completed / total) *
+            100
+          ).toFixed(2)
         )
       : 0;
 
@@ -332,7 +409,8 @@ export default function TimelineManagement() {
       : filter === "Upcoming"
       ? weeks.filter(
           (week) =>
-            week.status === "Not Started"
+            week.status ===
+            "Not Started"
         )
       : weeks.filter(
           (week) =>
@@ -358,8 +436,12 @@ export default function TimelineManagement() {
     );
   }
 
+  // ---------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------
   return (
     <div className="timeline-management">
+
       {error && (
         <div className="panel">
           <p className="panel-empty">
@@ -368,7 +450,11 @@ export default function TimelineManagement() {
         </div>
       )}
 
+      {/* =====================================================
+          OVERVIEW
+          ===================================================== */}
       <div className="timeline-overview">
+
         <div
           className="timeline-overview-ring"
           style={{
@@ -379,14 +465,19 @@ export default function TimelineManagement() {
           <span>
             {overallProgress}%
           </span>
-          <p>Overall</p>
+
+          <p>
+            Overall
+          </p>
         </div>
 
         <div className="timeline-overview-stats">
+
           <div className="ts-item">
             <span className="ts-value">
               {total}
             </span>
+
             <span className="ts-label">
               Total Weeks
             </span>
@@ -396,6 +487,7 @@ export default function TimelineManagement() {
             <span className="ts-value">
               {completed}
             </span>
+
             <span className="ts-label">
               Completed
             </span>
@@ -405,6 +497,7 @@ export default function TimelineManagement() {
             <span className="ts-value">
               {inProgress}
             </span>
+
             <span className="ts-label">
               In Progress
             </span>
@@ -414,14 +507,20 @@ export default function TimelineManagement() {
             <span className="ts-value">
               {atRisk}
             </span>
+
             <span className="ts-label">
               At Risk
             </span>
           </div>
+
         </div>
       </div>
 
+      {/* =====================================================
+          FILTERS
+          ===================================================== */}
       <div className="filter-bar">
+
         {[
           "All",
           "Upcoming",
@@ -429,6 +528,7 @@ export default function TimelineManagement() {
           "Completed",
           "At Risk"
         ].map((status) => (
+
           <button
             key={status}
             className={`filter-chip ${
@@ -442,24 +542,59 @@ export default function TimelineManagement() {
           >
             {status}
           </button>
+
         ))}
+
       </div>
 
-      <Timeline
-        weeks={filtered}
-        onMilestoneClick={
-          handleMilestoneClick
-        }
-      />
+      {/* =====================================================
+          AT RISK / TIMELINE CONTENT
+          ===================================================== */}
 
+      {filter === "At Risk" &&
+      filtered.length === 0 ? (
+
+        <div className="panel">
+          <div
+            className="panel-empty"
+            style={{
+              padding:
+                "24px",
+              textAlign:
+                "center"
+            }}
+          >
+            No Risk Found
+          </div>
+        </div>
+
+      ) : (
+
+        <Timeline
+          weeks={filtered}
+          onMilestoneClick={
+            handleMilestoneClick
+          }
+        />
+
+      )}
+
+      {/* =====================================================
+          LINKED MILESTONES
+          ===================================================== */}
       <section className="panel timeline-milestones-panel">
+
         <div className="panel-head">
-          <h3>Linked Milestones</h3>
+          <h3>
+            Linked Milestones
+          </h3>
         </div>
 
         <div className="milestone-mini-grid">
+
           {milestones.map(
             (milestone) => (
+
               <div
                 key={milestone.id}
                 className="milestone-mini"
@@ -469,7 +604,9 @@ export default function TimelineManagement() {
                   )
                 }
               >
+
                 <div className="milestone-mini-head">
+
                   <span className="milestone-mini-title">
                     {milestone.title}
                   </span>
@@ -479,23 +616,29 @@ export default function TimelineManagement() {
                       milestone.status
                     }
                   />
+
                 </div>
 
                 <div className="progress-bar sm">
+
                   <div
                     className="progress-bar-fill"
                     style={{
                       width: `${milestone.progress}%`
                     }}
                   />
+
                 </div>
 
                 <span className="milestone-mini-progress">
                   {milestone.progress}%
                 </span>
+
               </div>
+
             )
           )}
+
         </div>
 
         {milestones.length === 0 && (
@@ -503,7 +646,9 @@ export default function TimelineManagement() {
             No milestones available.
           </p>
         )}
+
       </section>
+
     </div>
   );
 }
