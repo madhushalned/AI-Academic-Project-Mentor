@@ -1,23 +1,36 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const NAV_ITEMS = [
   {
     label: 'Dashboard',
     route: '/dashboard',
-    icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
+    icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001 1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
   },
-  
+
   {
     label: 'Milestones',
     route: '/milestones',
-    icon: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9'
+    icon: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2 2 2 0 01-2 2zm9-13.5V9'
   },
+
+  {
+    label: 'Timeline',
+    route: '/timeline',
+    icon: 'M4 6h16M4 12h16M4 18h16'
+  },
+
+  {
+    label: 'Weekly AI Mentor',
+    route: '/weekly-mentor',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z'
+      },
   {
     label: 'Documents',
     route: '/documents',
     icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
   },
+
   {
     label: 'Profile',
     route: '/profile',
@@ -27,13 +40,16 @@ const NAV_ITEMS = [
 
 const Sidebar = ({ onLogout }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <aside style={styles.sidebar}>
-      {/* Brand */}
       <div>
+        {/* Brand */}
         <div style={styles.brandContainer}>
           <h1 style={styles.brandTitle}>
             <span>AI Academic</span>
+
             <span style={styles.brandSubtitle}>
               Project Mentor
             </span>
@@ -41,20 +57,28 @@ const Sidebar = ({ onLogout }) => {
         </div>
 
         {/* Navigation */}
-        <nav style={styles.navGroup} aria-label="Main navigation">
-          {NAV_ITEMS.map((item, index) => {
-            const isActive = index === 0;
+        <nav
+          style={styles.navGroup}
+          aria-label="Main navigation"
+        >
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              location.pathname === item.route;
 
             return (
               <button
                 key={item.route}
                 type="button"
-                onClick={() => navigate(item.route)}
+                onClick={() =>
+                  navigate(item.route)
+                }
                 style={{
                   ...styles.navButton,
+
                   backgroundColor: isActive
                     ? '#eff6ff'
                     : 'transparent',
+
                   color: isActive
                     ? '#2563eb'
                     : '#64748b'
@@ -65,7 +89,11 @@ const Sidebar = ({ onLogout }) => {
                   height="20"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke={isActive ? '#2563eb' : '#94a3b8'}
+                  stroke={
+                    isActive
+                      ? '#2563eb'
+                      : '#94a3b8'
+                  }
                 >
                   <path
                     d={item.icon}

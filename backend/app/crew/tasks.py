@@ -6,7 +6,11 @@ from app.crew.agents import (
     technology_agent,
     planning_agent,
     risk_agent,
-    progress_mentor_agent
+    progress_mentor_agent,
+    weekly_mentor_agent,
+    document_generation_agent,
+    faculty_summary_agent
+    
 )
 
 from app.schemas.analysis_schema import (
@@ -15,7 +19,8 @@ from app.schemas.analysis_schema import (
     TechnologyRecommendation,
     MilestonePlan,
     RiskAssessment,
-    ProgressEvaluation
+    ProgressEvaluation,
+    MentorRiskAnalysis
 )
 
 
@@ -486,4 +491,252 @@ progress_evaluation_task = Task(
     ),
 
     agent=progress_mentor_agent
+)
+
+weekly_mentor_task = Task(
+    description="""
+    Analyze the student's weekly project update and provide academic
+    mentorship focused on progress, blockers, risks, resolutions, and
+    possible plan adjustments.
+
+    Project:
+    Title: {title}
+    Description: {description}
+    Domain: {domain}
+
+    Planned Milestones:
+    {milestones}
+
+    Weekly Student Update:
+    Week: {week}
+    Completed Work: {completed_work}
+    Current Progress: {current_progress}%
+    Blockers: {blockers}
+    Next Goals: {next_goals}
+    Remarks: {remarks}
+
+    Analyze the update against the planned milestones.
+
+    Identify:
+    1. Important risks or problems emerging from the update.
+    2. Current blockers affecting project progress.
+    3. Practical resolutions for each blocker.
+    4. Recommendations to keep the project on schedule.
+    5. Immediate next actions.
+    6. Whether the existing project plan needs adjustment.
+    7. If adjustment is required, suggest a realistic adjusted plan.
+
+    Focus only on the student's academic project.
+    Do not introduce unnecessary features, technologies, databases,
+    APIs, deployment requirements, or unrelated work.
+
+    Return ONLY valid JSON using exactly these fields:
+
+    {
+        "overall_assessment": "string",
+        "identified_risks": ["string"],
+        "blockers": ["string"],
+        "resolutions": ["string"],
+        "recommendations": ["string"],
+        "plan_adjustment_required": true,
+        "adjusted_plan": ["string"],
+        "next_actions": ["string"]
+    }
+
+    Do not use Markdown.
+    """,
+
+    expected_output="""
+    A structured weekly mentor analysis containing:
+    overall_assessment,
+    identified_risks,
+    blockers,
+    resolutions,
+    recommendations,
+    plan_adjustment_required,
+    adjusted_plan,
+    next_actions.
+    """,
+
+    agent=weekly_mentor_agent,
+
+    output_pydantic=MentorRiskAnalysis
+)
+
+# ============================================================
+# 8. FACULTY MONITORING SUMMARY TASK
+# ============================================================
+
+faculty_summary_task = Task(
+    description="""
+    Generate a concise academic monitoring summary for a faculty member
+    supervising a student's project.
+
+    Project Information:
+    Title: {title}
+    Description: {description}
+    Domain: {domain}
+
+    Planned Milestones:
+    {milestones}
+
+    Current Progress:
+    {progress}
+
+    Progress Evaluation:
+    {progress_evaluation}
+
+    Weekly Check-ins:
+    {weekly_checkins}
+
+    Mentor and Risk Analysis:
+    {mentor_risk_analysis}
+
+    Initial Project Risks:
+    {risks}
+
+    Analyze the supplied information and provide a concise faculty-oriented
+    summary.
+
+    The summary must:
+    1. Describe the current state of the project.
+    2. Highlight important progress observations.
+    3. Identify the most important risks or blockers.
+    4. Mention whether the existing plan may require adjustment.
+    5. Provide practical points that faculty should be aware of.
+    6. Recommend appropriate follow-up actions when necessary.
+
+    IMPORTANT RULES:
+    - Use ONLY the information supplied in the project data.
+    - Do not invent progress, completed work, risks, or student activities.
+    - Do not introduce unrelated features or technologies.
+    - Do not make assumptions about information that is not provided.
+    - Keep the summary concise and suitable for a faculty dashboard.
+    - Focus on academic project supervision.
+    - Do not calculate or invent numerical progress scores.
+    - Do not change any stored project data.
+
+    Return ONLY valid JSON using exactly these fields:
+
+    {
+        "mentor_summary": "string",
+        "key_progress_observations": ["string"],
+        "key_risks": ["string"],
+        "faculty_attention": ["string"],
+        "recommended_follow_up": ["string"]
+    }
+
+    Do not use Markdown.
+    Do not use ```json.
+    Do not add explanations before or after the JSON.
+    """,
+
+    expected_output="""
+    A valid JSON object containing:
+    mentor_summary,
+    key_progress_observations,
+    key_risks,
+    faculty_attention,
+    recommended_follow_up.
+    """,
+
+    agent=faculty_summary_agent
+)
+
+# ============================================================
+# 9. DOCUMENT GENERATION TASK
+# ============================================================
+
+document_generation_task = Task(
+    description="""
+    Generate an academic project document based strictly on the
+    information supplied by the student project.
+
+    Project Information:
+    Title: {title}
+    Description: {description}
+    Domain: {domain}
+    Expected Outcome: {expected_outcome}
+
+    AI Project Analysis:
+    {ai_analysis}
+
+    Planned Milestones:
+    {milestones}
+
+    Project Risks:
+    {risks}
+
+    Recorded Progress:
+    {progress}
+
+    Progress Evaluation:
+    {progress_evaluation}
+
+    Requested Document Type:
+    {document_type}
+
+    Supported document types:
+    1. synopsis
+    2. methodology
+    3. progress_report
+
+    DOCUMENT RULES:
+
+    SYNOPSIS:
+    Generate a concise academic synopsis containing:
+    - Project title
+    - Problem statement
+    - Project objectives
+    - Proposed approach
+    - Main technologies or methods actually identified
+    - Expected outcome
+    - Project scope
+
+    METHODOLOGY:
+    Generate a structured methodology containing:
+    - Problem understanding
+    - Data preparation or input preparation when applicable
+    - System/model development approach
+    - Training or implementation process when applicable
+    - Evaluation approach
+    - Integration/testing approach
+    - Technologies and methods actually present in the project
+
+    PROGRESS REPORT:
+    Generate a factual progress report containing:
+    - Project overview
+    - Planned milestones
+    - Completed weeks
+    - Current progress
+    - Delayed or incomplete work
+    - Current issues/blockers
+    - Risks
+    - Recommendations
+    - Next actions
+
+    IMPORTANT ACADEMIC RULES:
+
+    - Use ONLY the information supplied in the input.
+    - Do not invent results, accuracy values, datasets, experiments,
+      technologies, completed work, or achievements.
+    - Do not claim that an incomplete milestone is completed.
+    - Do not introduce new project features.
+    - Do not add databases, APIs, deployment, cloud services,
+      dashboards, or external integrations unless they are explicitly
+      present in the supplied project information.
+    - Keep the document appropriate for an academic student project.
+    - Use clear professional academic language.
+    - Organize the document with headings and paragraphs.
+    - Do not use Markdown code fences.
+    - Do not return JSON.
+    - Return only the generated document text.
+    """,
+
+    expected_output="""
+    A complete academic document in plain text with appropriate headings,
+    based strictly on the supplied project information.
+    """,
+
+    agent=document_generation_agent
 )

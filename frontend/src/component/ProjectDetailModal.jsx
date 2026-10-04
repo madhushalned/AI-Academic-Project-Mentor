@@ -1,20 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 const ProjectDetailModal = ({
   project,
   onClose,
-  onEvaluateProgress,
-  isEvaluatingProgress
+  onMarkWeekComplete,
+  completingWeek
 }) => {
   if (!project) {
     return null;
   }
 
   const aiAnalysis = project.ai_analysis || {};
-  
-
-  const progressEvaluation =
-    project.progress_evaluation || {};
+  const progressEvaluation = project.progress_evaluation || {};
 
   const milestones = Array.isArray(aiAnalysis.milestones)
     ? aiAnalysis.milestones
@@ -24,1327 +21,1410 @@ const ProjectDetailModal = ({
     ? project.progress
     : [];
 
-  // Create lookup for weekly progress
-  const progressByWeek = {};
+  // =====================================================
+  // NORMALIZE PROGRESS
+  // Supports both:
+  // progress
+  // current_progress
+  // =====================================================
 
-  progressList.forEach((item) => {
-    if (
-      item &&
-      item.week !== undefined &&
-      item.week !== null
-    ) {
-      progressByWeek[item.week] = item;
+  const normalizeProgress = (value) => {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+      return 0;
     }
-  });
 
-  // Get planned milestone weeks
-  const plannedWeeks = milestones
-    .map((milestone) => milestone.week)
-    .filter(
-      (week) =>
-        week !== undefined &&
-        week !== null
+    return Math.min(Math.max(number, 0), 100);
+  };
+
+  const getProgressValue = (item) => {
+    if (!item) {
+      return 0;
+    }
+
+    // Prefer current_progress if available
+    if (
+      item.current_progress !== undefined &&
+      item.current_progress !== null
+    ) {
+      return normalizeProgress(item.current_progress);
+    }
+
+    return normalizeProgress(item.progress);
+  };
+
+  const normalizeStatus = (status) => {
+    return String(status || '')
+      .trim()
+      .toLowerCase();
+  };
+
+  // =====================================================
+  // CHECK WHETHER WEEK IS COMPLETED
+  // =====================================================
+
+  const isCompletedProgressItem = (item) => {
+    if (!item) {
+      return false;
+    }
+
+    const progress = getProgressValue(item);
+    const status = normalizeStatus(item.status);
+
+    return progress >= 100 || status === 'completed';
+  };
+
+  // =====================================================
+  // PROGRESS BY WEEK
+  // =====================================================
+
+  const progressByWeek = useMemo(() => {
+    const map = {};
+
+    progressList.forEach((item) => {
+      if (
+        item?.week !== undefined &&
+        item?.week !== null
+      ) {
+        map[Number(item.week)] = item;
+      }
+    });
+
+    return map;
+  }, [progressList]);
+
+  // =====================================================
+  // PLANNED WEEKS
+  // =====================================================
+
+  const plannedWeeks = useMemo(() => {
+    const weeks = milestones
+      .map((milestone) => Number(milestone?.week))
+      .filter((week) => Number.isFinite(week));
+
+    const uniqueWeeks = [...new Set(weeks)];
+
+    if (uniqueWeeks.length > 0) {
+      return uniqueWeeks.sort((a, b) => a - b);
+    }
+
+    // Fallback if milestones are unavailable
+    const progressWeeks = progressList
+      .map((item) => Number(item?.week))
+      .filter((week) => Number.isFinite(week));
+
+    return [...new Set(progressWeeks)].sort(
+      (a, b) => a - b
     );
+  }, [milestones, progressList]);
 
-  // Calculate overall progress
-  let overallProgress = 0;
+  const totalWeeks = plannedWeeks.length;
 
-  if (plannedWeeks.length > 0) {
-    const totalProgress = plannedWeeks.reduce(
-      (total, week) => {
-        const progress =
-          Number(
-            progressByWeek[week]?.progress
-          ) || 0;
+  // =====================================================
+  // COMPLETED WEEKS
+  // =====================================================
 
-        return total + progress;
-      },
-      0
+  const completedWeekNumbers = useMemo(() => {
+    return new Set(
+      progressList
+        .filter(isCompletedProgressItem)
+        .map((item) => Number(item.week))
+        .filter((week) => Number.isFinite(week))
     );
+  }, [progressList]);
 
-    overallProgress = Math.round(
-      totalProgress / plannedWeeks.length
-    );
-  } else if (progressList.length > 0) {
-    const totalProgress = progressList.reduce(
-      (total, item) => {
-        return (
-          total +
-          (Number(item?.progress) || 0)
-        );
-      },
-      0
-    );
-
-    overallProgress = Math.round(
-      totalProgress / progressList.length
-    );
-  }
-
-  // Keep progress between 0 and 100
-  overallProgress = Math.min(
-    Math.max(overallProgress, 0),
-    100
-  );
-
-  // Completed weeks
-  const completedWeeks = progressList.filter(
-    (item) =>
-      Number(item?.progress) >= 100
-  ).length;
-
-  // Total planned weeks
-  const totalWeeks =
-    plannedWeeks.length > 0
-      ? plannedWeeks.length
-      : progressList.length;
+  const completedWeeks =
+    totalWeeks > 0
+      ? plannedWeeks.filter((week) =>
+          completedWeekNumbers.has(Number(week))
+        ).length
+      : completedWeekNumbers.size;
 
   const pendingWeeks = Math.max(
     totalWeeks - completedWeeks,
     0
   );
 
-  return (
-    <div
-      style={styles.overlay}
-      onClick={onClose}
-    >
-      <div
-        style={styles.modal}
-        onClick={(event) =>
-          event.stopPropagation()
+  // =====================================================
+  // OVERALL PROJECT PROGRESS
+  //
+  // ONLY COMPLETED WEEKS ARE COUNTED.
+  //
+  // Example:
+  // 1 / 7 = 14.29%
+  // 2 / 7 = 28.57%
+  // 3 / 7 = 42.86%
+  // 7 / 7 = 100%
+  // =====================================================
+
+  const projectProgress =
+    totalWeeks > 0
+      ? Number(
+          ((completedWeeks / totalWeeks) * 100).toFixed(2)
+        )
+      : 0;
+
+  // =====================================================
+  // GET MILESTONE
+  // =====================================================
+
+  const getMilestoneForWeek = (week) => {
+    return milestones.find(
+      (milestone) =>
+        Number(milestone?.week) === Number(week)
+    );
+  };
+
+  // =====================================================
+  // GET SAVED PROGRESS
+  // =====================================================
+
+  const getSavedProgressForWeek = (week) => {
+    return progressByWeek[Number(week)] || null;
+  };
+
+  // =====================================================
+  // GET WEEK PROGRESS
+  //
+  // Weekly progress shows the actual saved progress value.
+  //
+  // Examples:
+  // 0%    = Not Started
+  // 40%   = In Progress
+  // 99%   = In Progress
+  // 100%  = Completed
+  //
+  // IMPORTANT:
+  // Overall project progress is still calculated separately
+  // using only COMPLETED weeks.
+  // =====================================================
+
+  const getWeekProgress = (week) => {
+    const saved = getSavedProgressForWeek(week);
+
+    return getProgressValue(saved);
+  };
+
+  // =====================================================
+  // CHECK WEEK COMPLETION
+  // =====================================================
+
+  const isWeekCompleted = (week) => {
+    const saved = getSavedProgressForWeek(week);
+
+    return isCompletedProgressItem(saved);
+  };
+
+  // =====================================================
+  // WEEK STATUS
+  // =====================================================
+
+  const getWeekStatus = (week) => {
+    const saved = getSavedProgressForWeek(week);
+    const progress = getProgressValue(saved);
+
+    if (isCompletedProgressItem(saved)) {
+      return 'Completed';
+    }
+
+    if (progress > 0) {
+      return 'In Progress';
+    }
+
+    return 'Not Started';
+  };
+
+  // =====================================================
+  // COMPLETE WEEK
+  // =====================================================
+
+  const handleCompleteWeek = async (week) => {
+    if (isWeekCompleted(week)) {
+      return;
+    }
+
+    if (!onMarkWeekComplete) {
+      return;
+    }
+
+    await onMarkWeekComplete(Number(week));
+  };
+
+  // =====================================================
+  // AI EVALUATION DATA
+  // =====================================================
+
+  const evaluationProgressScore = normalizeProgress(
+    progressEvaluation.progress_score
+  );
+
+  const evaluationStatus =
+    progressEvaluation.current_status ||
+    'Not Evaluated';
+
+  const overallAssessment =
+    progressEvaluation.overall_assessment ||
+    'No AI progress evaluation available yet.';
+
+  const evaluationCompletedWeeks = Array.isArray(
+    progressEvaluation.completed_weeks
+  )
+    ? progressEvaluation.completed_weeks
+    : [];
+
+  const evaluationDelayedWeeks = Array.isArray(
+    progressEvaluation.delayed_weeks
+  )
+    ? progressEvaluation.delayed_weeks
+    : [];
+
+  const issues = Array.isArray(
+    progressEvaluation.issues
+  )
+    ? progressEvaluation.issues
+    : [];
+
+  const recommendations = Array.isArray(
+    progressEvaluation.recommendations
+  )
+    ? progressEvaluation.recommendations
+    : [];
+
+  const nextActions = Array.isArray(
+    progressEvaluation.next_actions
+  )
+    ? progressEvaluation.next_actions
+    : [];
+
+  // =====================================================
+  // FORMAT WEEK LIST
+  // =====================================================
+
+  const formatWeekList = (weeks) => {
+    if (!Array.isArray(weeks) || weeks.length === 0) {
+      return 'None';
+    }
+
+    return weeks
+      .map((week) => {
+        if (
+          typeof week === 'object' &&
+          week !== null
+        ) {
+          return `Week ${week.week}`;
         }
-      >
 
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerContent}>
+        return `Week ${week}`;
+      })
+      .join(', ');
+  };
 
-            {project.dateText && (
-              <span style={styles.dateBadge}>
-                {project.dateText}
-              </span>
-            )}
+  return (
+    <div className="project-modal-overlay">
+      <div className="project-detail-modal">
 
-            <h2 style={styles.title}>
-              {project.title}
+        {/* ================================================= */}
+        {/* HEADER */}
+        {/* ================================================= */}
+
+        <div className="project-modal-header">
+          <div>
+            <h2>
+              {project.title || 'Project Details'}
             </h2>
 
+            {project.domain && (
+              <p className="project-domain">
+                {project.domain}
+              </p>
+            )}
           </div>
 
           <button
-            type="button"
-            style={styles.closeBtn}
+            className="close-modal-btn"
             onClick={onClose}
-            aria-label="Close project details"
-          >
-            &times;
-          </button>
-        </div>
-
-        {/* Status */}
-        <div style={styles.statusWrapper}>
-          <span style={styles.statusLabel}>
-            Status
-          </span>
-
-          <span style={styles.statusBadge}>
-            {project.status || 'Not Started'}
-          </span>
-        </div>
-
-        {/* Project Description */}
-        <div style={styles.descriptionContainer}>
-
-          <h3 style={styles.sectionLabel}>
-            Project Description
-          </h3>
-
-          <p style={styles.description}>
-            {project.description ||
-              'No description available.'}
-          </p>
-
-        </div>
-
-        {/* Domain */}
-        {project.domain && (
-          <div style={styles.infoSection}>
-
-            <h3 style={styles.sectionLabel}>
-              Domain
-            </h3>
-
-            <p style={styles.description}>
-              {project.domain}
-            </p>
-
-          </div>
-        )}
-
-        {/* Problem Statement */}
-        {project.problemStatement && (
-          <div style={styles.infoSection}>
-
-            <h3 style={styles.sectionLabel}>
-              Problem Statement
-            </h3>
-
-            <p style={styles.description}>
-              {project.problemStatement}
-            </p>
-
-          </div>
-        )}
-
-        {/* Expected Outcome */}
-        {project.expectedOutcome && (
-          <div style={styles.infoSection}>
-
-            <h3 style={styles.sectionLabel}>
-              Expected Outcome
-            </h3>
-
-            <p style={styles.description}>
-              {project.expectedOutcome}
-            </p>
-
-          </div>
-        )}
-
-        {/* Metrics */}
-        <div style={styles.metricsRow}>
-
-          {/* Completed */}
-          <div
-            style={{
-              ...styles.metricCard,
-              borderLeft:
-                '4px solid #22c55e'
-            }}
-          >
-            <span style={styles.metricLabel}>
-              Weeks Completed
-            </span>
-
-            <span
-              style={{
-                ...styles.metricValue,
-                color: '#16a34a'
-              }}
-            >
-              {completedWeeks}
-            </span>
-          </div>
-
-          {/* Pending */}
-          <div
-            style={{
-              ...styles.metricCard,
-              borderLeft:
-                '4px solid #eab308'
-            }}
-          >
-            <span style={styles.metricLabel}>
-              Weeks Pending
-            </span>
-
-            <span
-              style={{
-                ...styles.metricValue,
-                color: '#ca8a04'
-              }}
-            >
-              {pendingWeeks}
-            </span>
-          </div>
-
-          {/* Overall */}
-          <div
-            style={{
-              ...styles.metricCard,
-              borderLeft:
-                '4px solid #2563eb'
-            }}
-          >
-            <span style={styles.metricLabel}>
-              Overall Progress
-            </span>
-
-            <span
-              style={{
-                ...styles.metricValue,
-                color: '#1d4ed8'
-              }}
-            >
-              {overallProgress}%
-            </span>
-          </div>
-
-        </div>
-
-        {/* Overall Progress */}
-        <div style={styles.progressSection}>
-
-          <div style={styles.progressHeader}>
-
-            <span style={styles.progressLabel}>
-              Overall Project Progress
-            </span>
-
-            <span
-              style={styles.progressPercentage}
-            >
-              {overallProgress}%
-            </span>
-
-          </div>
-
-          <div style={styles.progressTrack}>
-
-            <div
-              style={{
-                ...styles.progressBar,
-                width: `${overallProgress}%`
-              }}
-            />
-
-          </div>
-
-        </div>
-
-        {/* AI Progress Evaluation Action */}
-        <div style={styles.evaluationActionSection}>
-
-          <div>
-            <h3 style={styles.sectionTitle}>
-              AI Progress Evaluation
-            </h3>
-
-            <p style={styles.sectionSubtitle}>
-              Compare your current progress with
-              the AI-generated project plan.
-            </p>
-          </div>
-
-          <button
             type="button"
-            style={{
-              ...styles.evaluateButton,
-              opacity: isEvaluatingProgress
-                ? 0.7
-                : 1,
-              cursor: isEvaluatingProgress
-                ? 'not-allowed'
-                : 'pointer'
-            }}
-            onClick={onEvaluateProgress}
-            disabled={isEvaluatingProgress}
           >
-            {isEvaluatingProgress
-              ? 'Evaluating...'
-              : 'Evaluate Progress'}
+            ×
           </button>
-
         </div>
 
-        {/* AI Progress Evaluation Result */}
-        {Object.keys(progressEvaluation).length > 0 && (
-          <div style={styles.evaluationContainer}>
+        {/* ================================================= */}
+        {/* PROJECT INFORMATION */}
+        {/* ================================================= */}
 
-            <div style={styles.evaluationHeader}>
+        <div className="project-section">
+          <h3>Project Information</h3>
 
-              <div>
-                <h3 style={styles.sectionTitle}>
-                  AI Progress Evaluation
-                </h3>
+          <div className="project-info-grid">
 
-                <p style={styles.sectionSubtitle}>
-                  Evaluation generated by the
-                  Progress Mentor agent.
-                </p>
-              </div>
-
-              <span style={styles.evaluationScore}>
-                {progressEvaluation.progress_score ?? 0}%
+            <div className="info-card">
+              <span className="info-label">
+                Project ID
               </span>
 
+              <span className="info-value">
+                {project.project_id || 'N/A'}
+              </span>
             </div>
 
-            {/* Overall Assessment */}
-            {progressEvaluation.overall_assessment && (
-              <div style={styles.evaluationBox}>
+            <div className="info-card">
+              <span className="info-label">
+                Domain
+              </span>
 
-                <span style={styles.evaluationLabel}>
-                  Overall Assessment
-                </span>
+              <span className="info-value">
+                {project.domain || 'N/A'}
+              </span>
+            </div>
 
-                <p style={styles.evaluationText}>
-                  {progressEvaluation.overall_assessment}
-                </p>
+            <div className="info-card">
+              <span className="info-label">
+                Status
+              </span>
 
-              </div>
-            )}
+              <span className="info-value">
+                {project.status || 'N/A'}
+              </span>
+            </div>
 
-            {/* Current Status */}
-            {progressEvaluation.current_status && (
-              <div style={styles.evaluationBox}>
+            <div className="info-card">
+              <span className="info-label">
+                Total Weeks
+              </span>
 
-                <span style={styles.evaluationLabel}>
-                  Current Status
-                </span>
-
-                <p style={styles.evaluationText}>
-                  {progressEvaluation.current_status}
-                </p>
-
-              </div>
-            )}
-
-            {/* Completed Weeks */}
-            {Array.isArray(
-              progressEvaluation.completed_weeks
-            ) &&
-              progressEvaluation.completed_weeks.length > 0 && (
-                <div style={styles.evaluationBox}>
-
-                  <span style={styles.evaluationLabel}>
-                    Completed Weeks
-                  </span>
-
-                  <p style={styles.evaluationText}>
-                    {progressEvaluation.completed_weeks
-                      .map(
-                        (week) =>
-                          `Week ${week}`
-                      )
-                      .join(', ')}
-                  </p>
-
-                </div>
-              )}
-
-            {/* Delayed / Incomplete Weeks */}
-            {Array.isArray(
-              progressEvaluation.delayed_weeks
-            ) &&
-              progressEvaluation.delayed_weeks.length > 0 && (
-                <div style={styles.evaluationBox}>
-
-                  <span style={styles.evaluationLabel}>
-                    Delayed / Incomplete Weeks
-                  </span>
-
-                  <p style={styles.evaluationText}>
-                    {progressEvaluation.delayed_weeks
-                      .map(
-                        (week) =>
-                          `Week ${week}`
-                      )
-                      .join(', ')}
-                  </p>
-
-                </div>
-              )}
-
-            {/* Issues */}
-            {Array.isArray(
-              progressEvaluation.issues
-            ) &&
-              progressEvaluation.issues.length > 0 && (
-                <div style={styles.evaluationBox}>
-
-                  <span style={styles.evaluationLabel}>
-                    Issues
-                  </span>
-
-                  <ul style={styles.evaluationList}>
-
-                    {progressEvaluation.issues.map(
-                      (issue, index) => (
-                        <li key={index}>
-                          {issue}
-                        </li>
-                      )
-                    )}
-
-                  </ul>
-
-                </div>
-              )}
-
-            {/* Recommendations */}
-            {Array.isArray(
-              progressEvaluation.recommendations
-            ) &&
-              progressEvaluation.recommendations.length > 0 && (
-                <div style={styles.evaluationBox}>
-
-                  <span style={styles.evaluationLabel}>
-                    Recommendations
-                  </span>
-
-                  <ul style={styles.evaluationList}>
-
-                    {progressEvaluation.recommendations.map(
-                      (
-                        recommendation,
-                        index
-                      ) => (
-                        <li key={index}>
-                          {recommendation}
-                        </li>
-                      )
-                    )}
-
-                  </ul>
-
-                </div>
-              )}
-
-            {/* Next Actions */}
-            {Array.isArray(
-              progressEvaluation.next_actions
-            ) &&
-              progressEvaluation.next_actions.length > 0 && (
-                <div style={styles.evaluationBox}>
-
-                  <span style={styles.evaluationLabel}>
-                    Next Actions
-                  </span>
-
-                  <ul style={styles.evaluationList}>
-
-                    {progressEvaluation.next_actions.map(
-                      (action, index) => (
-                        <li key={index}>
-                          {action}
-                        </li>
-                      )
-                    )}
-
-                  </ul>
-
-                </div>
-              )}
+              <span className="info-value">
+                {totalWeeks}
+              </span>
+            </div>
 
           </div>
-        )}
 
-        {/* AI Milestones */}
-        <div style={styles.milestoneContainer}>
+          {project.description && (
+            <div className="project-description">
+              <h4>Description</h4>
 
-          <div style={styles.sectionHeaderRow}>
+              <p>
+                {project.description}
+              </p>
+            </div>
+          )}
 
-            <div>
-              <h3 style={styles.sectionTitle}>
-                AI-Generated Project Milestones
-              </h3>
+          {project.problemStatement && (
+            <div className="project-description">
+              <h4>Problem Statement</h4>
 
-              <p style={styles.sectionSubtitle}>
-                Milestones generated by CrewAI
-                during project analysis.
+              <p>
+                {project.problemStatement}
+              </p>
+            </div>
+          )}
+
+          {project.expectedOutcome && (
+            <div className="project-description">
+              <h4>Expected Outcome</h4>
+
+              <p>
+                {project.expectedOutcome}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ================================================= */}
+        {/* PROGRESS SUMMARY */}
+        {/* ================================================= */}
+
+        <div className="project-section">
+
+          <div className="section-header">
+            <h3>Progress Summary</h3>
+          </div>
+
+          <div className="progress-summary-grid">
+
+            {/* COMPLETED WEEKS */}
+
+            <div className="summary-card">
+              <span className="summary-label">
+                Weeks Completed
+              </span>
+
+              <strong className="summary-value">
+                {completedWeeks}
+              </strong>
+
+              <span className="summary-subtext">
+                of {totalWeeks}
+              </span>
+            </div>
+
+            {/* PENDING WEEKS */}
+
+            <div className="summary-card">
+              <span className="summary-label">
+                Weeks Pending
+              </span>
+
+              <strong className="summary-value">
+                {pendingWeeks}
+              </strong>
+
+              <span className="summary-subtext">
+                remaining
+              </span>
+            </div>
+
+            {/* OVERALL PROJECT PROGRESS */}
+
+            <div className="summary-card">
+              <span className="summary-label">
+                Overall Project Progress
+              </span>
+
+              <strong className="summary-value">
+                {projectProgress}%
+              </strong>
+
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${projectProgress}%`
+                  }}
+                />
+              </div>
+
+              <span className="summary-subtext">
+                Based on completed weeks
+              </span>
+            </div>
+
+            {/* TOTAL PROGRESS SCALE */}
+
+            <div className="summary-card">
+              <span className="summary-label">
+                Total Progress
+              </span>
+
+              <strong className="summary-value">
+                100%
+              </strong>
+
+              <span className="summary-subtext">
+                Maximum project progress
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ================================================= */}
+        {/* AI PROGRESS EVALUATION */}
+        {/* ================================================= */}
+
+        <div className="project-section">
+
+          <h3>AI Progress Evaluation</h3>
+
+          <div className="ai-evaluation-card">
+
+            <div className="evaluation-score">
+              <span className="evaluation-label">
+                AI Progress Score
+              </span>
+
+              <strong>
+                {evaluationProgressScore}%
+              </strong>
+            </div>
+
+            <div className="evaluation-row">
+              <span className="evaluation-label">
+                Overall Assessment
+              </span>
+
+              <p>
+                {overallAssessment}
               </p>
             </div>
 
-            <span style={styles.countBadge}>
-              {milestones.length}
-            </span>
+            <div className="evaluation-row">
+              <span className="evaluation-label">
+                Current Status
+              </span>
 
-          </div>
-
-          {milestones.length === 0 ? (
-
-            <div style={styles.emptyState}>
-              AI milestones are not available yet.
-              Analyze the project first.
+              <span className="evaluation-status">
+                {evaluationStatus}
+              </span>
             </div>
 
-          ) : (
+            <div className="evaluation-row">
+              <span className="evaluation-label">
+                Completed Weeks
+              </span>
 
-            <div style={styles.milestoneList}>
+              <p>
+                {formatWeekList(
+                  evaluationCompletedWeeks
+                )}
+              </p>
+            </div>
 
-              {milestones.map(
-                (milestone, index) => {
+            <div className="evaluation-row">
+              <span className="evaluation-label">
+                Delayed Weeks
+              </span>
 
-                  const week =
-                    milestone?.week ??
-                    index + 1;
+              <p>
+                {formatWeekList(
+                  evaluationDelayedWeeks
+                )}
+              </p>
+            </div>
 
-                  const weekProgress = Math.min(
-                    Math.max(
-                      Number(
-                        progressByWeek[week]
-                          ?.progress
-                      ) || 0,
-                      0
-                    ),
-                    100
-                  );
+            {issues.length > 0 && (
+              <div className="evaluation-row">
 
-                  const weekStatus =
-                    progressByWeek[week]
-                      ?.status ||
-                    'not_started';
+                <span className="evaluation-label">
+                  Issues
+                </span>
 
-                  const remarks =
-                    progressByWeek[week]
-                      ?.remarks;
+                <ul>
+                  {issues.map((issue, index) => (
+                    <li key={index}>
+                      {typeof issue === 'object'
+                        ? JSON.stringify(issue)
+                        : issue}
+                    </li>
+                  ))}
+                </ul>
 
-                  const tasks =
-                    Array.isArray(
-                      milestone?.tasks
+              </div>
+            )}
+
+            {recommendations.length > 0 && (
+              <div className="evaluation-row">
+
+                <span className="evaluation-label">
+                  Recommendations
+                </span>
+
+                <ul>
+                  {recommendations.map(
+                    (recommendation, index) => (
+                      <li key={index}>
+                        {typeof recommendation ===
+                        'object'
+                          ? JSON.stringify(
+                              recommendation
+                            )
+                          : recommendation}
+                      </li>
                     )
-                      ? milestone.tasks
-                      : [];
+                  )}
+                </ul>
 
-                  const deliverables =
-                    Array.isArray(
-                      milestone?.deliverables
+              </div>
+            )}
+
+            {nextActions.length > 0 && (
+              <div className="evaluation-row">
+
+                <span className="evaluation-label">
+                  Next Actions
+                </span>
+
+                <ul>
+                  {nextActions.map(
+                    (action, index) => (
+                      <li key={index}>
+                        {typeof action === 'object'
+                          ? JSON.stringify(action)
+                          : action}
+                      </li>
                     )
-                      ? milestone.deliverables
-                      : [];
+                  )}
+                </ul>
 
-                  return (
-                    <div
-                      key={`${week}-${index}`}
-                      style={
-                        styles.milestoneCard
-                      }
-                    >
+              </div>
+            )}
 
-                      {/* Milestone Header */}
-                      <div
-                        style={
-                          styles.milestoneHeader
-                        }
-                      >
+          </div>
+        </div>
 
-                        <div>
+        {/* ================================================= */}
+        {/* WEEKLY PROGRESS */}
+        {/* ================================================= */}
 
-                          <span
-                            style={
-                              styles.weekBadge
-                            }
-                          >
-                            Week {week}
-                          </span>
+        <div className="project-section">
 
-                          <h4
-                            style={
-                              styles.milestoneTitle
-                            }
-                          >
-                            {milestone?.title ||
-                              `Milestone ${
-                                index + 1
-                              }`}
-                          </h4>
+          <h3>Weekly Progress</h3>
 
-                        </div>
+          <div className="weekly-progress-container">
 
-                        <span
-                          style={{
-                            ...styles.progressBadge,
-                            backgroundColor:
-                              weekProgress >=
-                              100
-                                ? '#dcfce7'
-                                : weekProgress >
-                                  0
-                                ? '#dbeafe'
-                                : '#f1f5f9',
-                            color:
-                              weekProgress >=
-                              100
-                                ? '#15803d'
-                                : weekProgress >
-                                  0
-                                ? '#1d4ed8'
-                                : '#64748b'
-                          }}
-                        >
-                          {weekProgress}%
-                        </span>
+            {plannedWeeks.length === 0 ? (
+              <div className="empty-state">
+                No milestones available.
+              </div>
+            ) : (
+              plannedWeeks.map((week) => {
 
+                const milestone =
+                  getMilestoneForWeek(week);
+
+                const weekProgress =
+                  getWeekProgress(week);
+
+                const completed =
+                  isWeekCompleted(week);
+
+                const weekStatus =
+                  getWeekStatus(week);
+
+                const isCompletingThisWeek =
+                  Number(completingWeek) ===
+                  Number(week);
+
+                return (
+                  <div
+                    className={`weekly-card ${
+                      completed
+                        ? 'weekly-card-completed'
+                        : ''
+                    }`}
+                    key={week}
+                  >
+
+                    {/* ===================================== */}
+                    {/* WEEK HEADER */}
+                    {/* ===================================== */}
+
+                    <div className="weekly-card-header">
+
+                      <div>
+                        <h4>
+                          Week {week}
+                        </h4>
+
+                        {milestone?.title && (
+                          <p className="milestone-title">
+                            {milestone.title}
+                          </p>
+                        )}
                       </div>
 
-                      {/* Description */}
-                      {milestone?.description && (
-                        <p
-                          style={
-                            styles.milestoneDescription
-                          }
-                        >
+                      <span
+                        className={`week-status ${
+                          weekStatus === 'Completed'
+                            ? 'completed'
+                            : weekStatus === 'In Progress'
+                              ? 'in-progress'
+                              : 'not-started'
+                        }`}
+                      >
+                        {weekStatus}
+                      </span>
+
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* MILESTONE DESCRIPTION */}
+                    {/* ===================================== */}
+
+                    {milestone?.description && (
+                      <div className="milestone-description">
+
+                        <strong>
+                          Planned Work
+                        </strong>
+
+                        <p>
                           {milestone.description}
                         </p>
-                      )}
 
-                      {/* Weekly Status */}
-                      <div
-                        style={
-                          styles.weekStatusRow
-                        }
-                      >
+                      </div>
+                    )}
 
-                        <span
-                          style={
-                            styles.smallLabel
-                          }
-                        >
-                          Current Status:
+                    {/* ===================================== */}
+                    {/* WEEK PROGRESS */}
+                    {/* ===================================== */}
+
+                    <div className="weekly-progress-section">
+
+                      <div className="weekly-progress-header">
+
+                        <span>
+                          Progress
                         </span>
 
-                        <span
-                          style={
-                            styles.statusText
-                          }
-                        >
-                          {String(
-                            weekStatus
-                          ).replace(
-                            /_/g,
-                            ' '
-                          )}
-                        </span>
+                        <strong>
+                          {weekProgress}%
+                        </strong>
 
                       </div>
 
-                      {/* Weekly Progress */}
-                      <div
-                        style={
-                          styles.weekProgressTrack
-                        }
-                      >
+                      <div className="progress-bar">
 
                         <div
+                          className="progress-fill"
                           style={{
-                            ...styles.weekProgressBar,
                             width: `${weekProgress}%`
                           }}
                         />
 
                       </div>
 
-                      {/* Tasks */}
-                      {tasks.length > 0 && (
-                        <div
-                          style={
-                            styles.subSection
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* ACTION */}
+                    {/* ===================================== */}
+
+                    <div className="weekly-actions">
+
+                      {!completed ? (
+                        <button
+                          type="button"
+                          className="complete-week-btn"
+                          onClick={() =>
+                            handleCompleteWeek(week)
+                          }
+                          disabled={
+                            isCompletingThisWeek
                           }
                         >
-
-                          <h5
-                            style={
-                              styles.subSectionTitle
-                            }
-                          >
-                            Tasks
-                          </h5>
-
-                          <ul
-                            style={
-                              styles.taskList
-                            }
-                          >
-
-                            {tasks.map(
-                              (
-                                task,
-                                taskIndex
-                              ) => (
-
-                                <li
-                                  key={
-                                    taskIndex
-                                  }
-                                  style={
-                                    styles.taskItem
-                                  }
-                                >
-                                  {typeof task ===
-                                  'string'
-                                    ? task
-                                    : task?.title ||
-                                      task?.task ||
-                                      task?.name ||
-                                      JSON.stringify(
-                                        task
-                                      )}
-                                </li>
-
-                              )
-                            )}
-
-                          </ul>
-
-                        </div>
-                      )}
-
-                      {/* Deliverables */}
-                      {deliverables.length >
-                        0 && (
-                        <div
-                          style={
-                            styles.subSection
-                          }
-                        >
-
-                          <h5
-                            style={
-                              styles.subSectionTitle
-                            }
-                          >
-                            Deliverables
-                          </h5>
-
-                          <ul
-                            style={
-                              styles.taskList
-                            }
-                          >
-
-                            {deliverables.map(
-                              (
-                                deliverable,
-                                deliverableIndex
-                              ) => (
-
-                                <li
-                                  key={
-                                    deliverableIndex
-                                  }
-                                  style={
-                                    styles.deliverableItem
-                                  }
-                                >
-                                  {typeof deliverable ===
-                                  'string'
-                                    ? deliverable
-                                    : deliverable?.title ||
-                                      deliverable?.name ||
-                                      JSON.stringify(
-                                        deliverable
-                                      )}
-                                </li>
-
-                              )
-                            )}
-
-                          </ul>
-
-                        </div>
-                      )}
-
-                      {/* Remarks */}
-                      {remarks && (
-                        <div
-                          style={
-                            styles.remarksBox
-                          }
-                        >
-
-                          <span
-                            style={
-                              styles.smallLabel
-                            }
-                          >
-                            Progress Remarks
-                          </span>
-
-                          <p
-                            style={
-                              styles.remarksText
-                            }
-                          >
-                            {remarks}
-                          </p>
-
+                          {isCompletingThisWeek
+                            ? 'Completing...'
+                            : 'Mark Week Complete'}
+                        </button>
+                      ) : (
+                        <div className="completed-message">
+                          ✓ Week Completed
                         </div>
                       )}
 
                     </div>
-                  );
-                }
+
+                  </div>
+                );
+              })
+            )}
+
+          </div>
+        </div>
+
+        {/* ================================================= */}
+        {/* AI PROJECT ANALYSIS */}
+        {/* ================================================= */}
+
+        {Object.keys(aiAnalysis).length > 0 && (
+          <div className="project-section">
+
+            <h3>AI Project Analysis</h3>
+
+            <div className="analysis-card">
+
+              {aiAnalysis.feasibility && (
+                <div className="analysis-row">
+
+                  <h4>
+                    Feasibility
+                  </h4>
+
+                  <p>
+                    {typeof aiAnalysis.feasibility ===
+                    'object'
+                      ? JSON.stringify(
+                          aiAnalysis.feasibility,
+                          null,
+                          2
+                        )
+                      : aiAnalysis.feasibility}
+                  </p>
+
+                </div>
+              )}
+
+              {aiAnalysis.technology_recommendation && (
+                <div className="analysis-row">
+
+                  <h4>
+                    Technology Recommendation
+                  </h4>
+
+                  <p>
+                    {typeof aiAnalysis.technology_recommendation ===
+                    'object'
+                      ? JSON.stringify(
+                          aiAnalysis.technology_recommendation,
+                          null,
+                          2
+                        )
+                      : aiAnalysis.technology_recommendation}
+                  </p>
+
+                </div>
+              )}
+
+              {aiAnalysis.planning && (
+                <div className="analysis-row">
+
+                  <h4>
+                    Planning
+                  </h4>
+
+                  <p>
+                    {typeof aiAnalysis.planning ===
+                    'object'
+                      ? JSON.stringify(
+                          aiAnalysis.planning,
+                          null,
+                          2
+                        )
+                      : aiAnalysis.planning}
+                  </p>
+
+                </div>
+              )}
+
+              {aiAnalysis.risk_analysis && (
+                <div className="analysis-row">
+
+                  <h4>
+                    Risk Analysis
+                  </h4>
+
+                  <p>
+                    {typeof aiAnalysis.risk_analysis ===
+                    'object'
+                      ? JSON.stringify(
+                          aiAnalysis.risk_analysis,
+                          null,
+                          2
+                        )
+                      : aiAnalysis.risk_analysis}
+                  </p>
+
+                </div>
               )}
 
             </div>
-          )}
+          </div>
+        )}
+
+        {/* ================================================= */}
+        {/* FOOTER */}
+        {/* ================================================= */}
+
+        <div className="project-modal-footer">
+
+          <button
+            type="button"
+            className="close-footer-btn"
+            onClick={onClose}
+          >
+            Close
+          </button>
 
         </div>
 
       </div>
+
+      {/* ================================================= */}
+      {/* STYLES */}
+      {/* ================================================= */}
+
+      <style>{`
+
+        .project-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.55);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 9999;
+          padding: 24px;
+        }
+
+        .project-detail-modal {
+          width: min(1100px, 100%);
+          max-height: 92vh;
+          overflow-y: auto;
+          background: #ffffff;
+          border-radius: 18px;
+          box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.25);
+          padding: 0;
+        }
+
+        .project-modal-header {
+          position: sticky;
+          top: 0;
+          z-index: 5;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 24px 28px;
+          background: #ffffff;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .project-modal-header h2 {
+          margin: 0;
+          font-size: 26px;
+          font-weight: 700;
+          color: #111827;
+        }
+
+        .project-domain {
+          margin: 6px 0 0;
+          color: #6b7280;
+          font-size: 14px;
+        }
+
+        .close-modal-btn {
+          border: none;
+          background: transparent;
+          font-size: 32px;
+          line-height: 1;
+          cursor: pointer;
+          color: #6b7280;
+          padding: 0 4px;
+        }
+
+        .close-modal-btn:hover {
+          color: #111827;
+        }
+
+        .project-section {
+          padding: 24px 28px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .project-section h3 {
+          margin: 0 0 18px;
+          font-size: 20px;
+          color: #111827;
+        }
+
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 18px;
+        }
+
+        .section-header h3 {
+          margin-bottom: 0;
+        }
+
+        .project-info-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+
+        .info-card {
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 14px;
+        }
+
+        .info-label,
+        .summary-label,
+        .evaluation-label {
+          display: block;
+          font-size: 12px;
+          color: #6b7280;
+          margin-bottom: 6px;
+          font-weight: 600;
+        }
+
+        .info-value {
+          color: #111827;
+          font-size: 14px;
+          word-break: break-word;
+        }
+
+        .project-description {
+          margin-top: 18px;
+          padding: 16px;
+          background: #f9fafb;
+          border-radius: 12px;
+        }
+
+        .project-description h4 {
+          margin: 0 0 8px;
+          color: #111827;
+        }
+
+        .project-description p {
+          margin: 0;
+          color: #4b5563;
+          line-height: 1.6;
+          white-space: pre-wrap;
+        }
+
+        .progress-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+
+        .summary-card {
+          border: 1px solid #e5e7eb;
+          border-radius: 14px;
+          padding: 18px;
+          background: #ffffff;
+        }
+
+        .summary-value {
+          display: block;
+          font-size: 28px;
+          color: #111827;
+          margin-bottom: 4px;
+        }
+
+        .summary-subtext {
+          font-size: 13px;
+          color: #6b7280;
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 8px;
+          background: #e5e7eb;
+          border-radius: 999px;
+          overflow: hidden;
+          margin-top: 10px;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: #22c55e;
+          border-radius: 999px;
+          transition: width 0.3s ease;
+        }
+
+        /* ============================================= */
+        /* AI EVALUATION */
+        /* ============================================= */
+
+        .ai-evaluation-card {
+          border: 1px solid #e5e7eb;
+          border-radius: 14px;
+          padding: 20px;
+          background: #f9fafb;
+        }
+
+        .evaluation-score {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 16px;
+          margin-bottom: 16px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .evaluation-score strong {
+          font-size: 30px;
+          color: #111827;
+        }
+
+        .evaluation-row {
+          margin-top: 16px;
+        }
+
+        .evaluation-row p {
+          margin: 0;
+          color: #374151;
+          line-height: 1.6;
+          white-space: pre-wrap;
+        }
+
+        .evaluation-row ul {
+          margin: 8px 0 0;
+          padding-left: 22px;
+          color: #374151;
+        }
+
+        .evaluation-row li {
+          margin-bottom: 7px;
+          line-height: 1.5;
+        }
+
+        .evaluation-status {
+          display: inline-block;
+          padding: 6px 10px;
+          border-radius: 8px;
+          background: #eef2ff;
+          color: #3730a3;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        /* ============================================= */
+        /* WEEKLY PROGRESS */
+        /* ============================================= */
+
+        .weekly-progress-container {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .weekly-card {
+          border: 1px solid #e5e7eb;
+          border-radius: 14px;
+          padding: 20px;
+          background: #ffffff;
+        }
+
+        .weekly-card-completed {
+          border-color: #bbf7d0;
+          background: #f0fdf4;
+        }
+
+        .weekly-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .weekly-card-header h4 {
+          margin: 0;
+          font-size: 18px;
+          color: #111827;
+        }
+
+        .milestone-title {
+          margin: 5px 0 0;
+          color: #4b5563;
+          font-size: 14px;
+        }
+
+        .week-status {
+          display: inline-flex;
+          align-items: center;
+          padding: 6px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: capitalize;
+          white-space: nowrap;
+        }
+
+        .week-status.completed {
+          background: #dcfce7;
+          color: #166534;
+        }
+
+        .week-status.not-started {
+          background: #f3f4f6;
+          color: #4b5563;
+        }
+
+        .week-status.in-progress {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        .milestone-description {
+          padding: 14px;
+          background: #f9fafb;
+          border-radius: 10px;
+          margin-bottom: 16px;
+        }
+
+        .milestone-description strong {
+          display: block;
+          font-size: 13px;
+          color: #374151;
+          margin-bottom: 5px;
+        }
+
+        .milestone-description p {
+          margin: 0;
+          color: #4b5563;
+          line-height: 1.5;
+          font-size: 14px;
+        }
+
+        .weekly-progress-section {
+          margin-bottom: 18px;
+        }
+
+        .weekly-progress-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 7px;
+          color: #374151;
+          font-size: 14px;
+        }
+
+        /* ============================================= */
+        /* ACTION BUTTON */
+        /* ============================================= */
+
+        .weekly-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 14px;
+        }
+
+        .complete-week-btn {
+          border: none;
+          border-radius: 9px;
+          padding: 10px 16px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: 0.2s ease;
+          background: #16a34a;
+          color: #ffffff;
+        }
+
+        .complete-week-btn:hover:not(:disabled) {
+          background: #15803d;
+        }
+
+        .complete-week-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .completed-message {
+          width: 100%;
+          text-align: right;
+          color: #166534;
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        /* ============================================= */
+        /* AI ANALYSIS */
+        /* ============================================= */
+
+        .analysis-card {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .analysis-row {
+          padding: 16px;
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+        }
+
+        .analysis-row h4 {
+          margin: 0 0 8px;
+          color: #111827;
+        }
+
+        .analysis-row p {
+          margin: 0;
+          color: #4b5563;
+          line-height: 1.6;
+          white-space: pre-wrap;
+        }
+
+        /* ============================================= */
+        /* EMPTY STATE */
+        /* ============================================= */
+
+        .empty-state {
+          padding: 30px;
+          text-align: center;
+          color: #6b7280;
+          background: #f9fafb;
+          border-radius: 12px;
+        }
+
+        /* ============================================= */
+        /* FOOTER */
+        /* ============================================= */
+
+        .project-modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          padding: 20px 28px;
+          background: #ffffff;
+        }
+
+        .close-footer-btn {
+          border: none;
+          border-radius: 9px;
+          padding: 10px 16px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          background: #111827;
+          color: #ffffff;
+        }
+
+        .close-footer-btn:hover {
+          background: #1f2937;
+        }
+
+        /* ============================================= */
+        /* RESPONSIVE */
+        /* ============================================= */
+
+        @media (max-width: 900px) {
+          .project-info-grid,
+          .progress-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 600px) {
+          .project-modal-overlay {
+            padding: 10px;
+          }
+
+          .project-detail-modal {
+            max-height: 96vh;
+            border-radius: 12px;
+          }
+
+          .project-modal-header,
+          .project-section,
+          .project-modal-footer {
+            padding-left: 18px;
+            padding-right: 18px;
+          }
+
+          .project-info-grid,
+          .progress-summary-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .weekly-card-header {
+            flex-direction: column;
+          }
+
+          .weekly-actions {
+            flex-direction: column;
+          }
+
+          .complete-week-btn {
+            width: 100%;
+          }
+        }
+
+      `}</style>
     </div>
   );
-};
-
-const styles = {
-
-  overlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor:
-      'rgba(15, 23, 42, 0.45)',
-    backdropFilter: 'blur(2px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-    zIndex: 1000,
-    boxSizing: 'border-box',
-    overflowY: 'auto'
-  },
-
-  modal: {
-    position: 'relative',
-    backgroundColor: '#ffffff',
-    width: '100%',
-    maxWidth: '700px',
-    height: '90vh',
-    maxHeight: '90vh',
-    overflowY: 'scroll',
-    overflowX: 'hidden',
-    borderRadius: '16px',
-    padding: '28px',
-    boxSizing: 'border-box',
-    boxShadow:
-      '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)'
-  },
-
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '20px'
-  },
-
-  headerContent: {
-    minWidth: 0,
-    flex: 1
-  },
-
-  dateBadge: {
-    display: 'inline-block',
-    fontSize: '11px',
-    color: '#64748b',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    marginBottom: '5px'
-  },
-
-  title: {
-    margin: 0,
-    fontSize: '21px',
-    lineHeight: '1.3',
-    fontWeight: '700',
-    color: '#0f172a',
-    wordBreak: 'break-word'
-  },
-
-  closeBtn: {
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-    border: 'none',
-    borderRadius: '7px',
-    fontSize: '24px',
-    lineHeight: 1,
-    cursor: 'pointer',
-    color: '#64748b',
-    flexShrink: 0
-  },
-
-  statusWrapper: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginTop: '16px'
-  },
-
-  statusLabel: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#64748b'
-  },
-
-  statusBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    backgroundColor: '#dbeafe',
-    color: '#1d4ed8',
-    padding: '5px 10px',
-    borderRadius: '12px',
-    fontSize: '11px',
-    fontWeight: '600'
-  },
-
-  descriptionContainer: {
-    marginTop: '20px',
-    paddingBottom: '18px',
-    borderBottom:
-      '1px solid #f1f5f9'
-  },
-
-  infoSection: {
-    marginTop: '18px',
-    paddingBottom: '18px',
-    borderBottom:
-      '1px solid #f1f5f9'
-  },
-
-  sectionLabel: {
-    margin: '0 0 7px 0',
-    fontSize: '13px',
-    fontWeight: '700',
-    color: '#0f172a'
-  },
-
-  description: {
-    margin: 0,
-    fontSize: '14px',
-    color: '#475569',
-    lineHeight: '1.6',
-    wordBreak: 'break-word'
-  },
-
-  metricsRow: {
-    display: 'grid',
-    gridTemplateColumns:
-      'repeat(3, 1fr)',
-    gap: '12px',
-    margin: '20px 0 18px 0'
-  },
-
-  metricCard: {
-    backgroundColor: '#f8fafc',
-    padding: '13px 14px',
-    borderRadius: '8px',
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-    borderLeft:
-      '4px solid #2563eb'
-  },
-
-  metricLabel: {
-    fontSize: '11px',
-    color: '#64748b',
-    fontWeight: '600'
-  },
-
-  metricValue: {
-    fontSize: '20px',
-    fontWeight: '700',
-    marginTop: '3px'
-  },
-
-  progressSection: {
-    marginBottom: '24px'
-  },
-
-  progressHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '7px'
-  },
-
-  progressLabel: {
-    fontSize: '12px',
-    color: '#475569',
-    fontWeight: '600'
-  },
-
-  progressPercentage: {
-    fontSize: '12px',
-    color: '#1d4ed8',
-    fontWeight: '700'
-  },
-
-  progressTrack: {
-    height: '8px',
-    width: '100%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: '5px',
-    overflow: 'hidden'
-  },
-
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#2563eb',
-    borderRadius: '5px',
-    transition:
-      'width 0.3s ease'
-  },
-
-  /* AI Evaluation Button Section */
-  evaluationActionSection: {
-    marginTop: '20px',
-    padding: '16px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '10px',
-    border: '1px solid #e2e8f0',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '15px'
-  },
-
-  evaluateButton: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '9px 14px',
-    fontSize: '12px',
-    fontWeight: '700',
-    flexShrink: 0
-  },
-
-  /* AI Evaluation Result */
-  evaluationContainer: {
-    marginTop: '15px',
-    padding: '18px',
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px'
-  },
-
-  evaluationHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '15px',
-    marginBottom: '15px'
-  },
-
-  evaluationScore: {
-    backgroundColor: '#eff6ff',
-    color: '#1d4ed8',
-    padding: '7px 11px',
-    borderRadius: '12px',
-    fontSize: '13px',
-    fontWeight: '700',
-    flexShrink: 0
-  },
-
-  evaluationBox: {
-    marginTop: '12px',
-    padding: '11px 13px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px'
-  },
-
-  evaluationLabel: {
-    display: 'block',
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: '5px'
-  },
-
-  evaluationText: {
-    margin: 0,
-    fontSize: '12px',
-    color: '#475569',
-    lineHeight: '1.5'
-  },
-
-  evaluationList: {
-    margin: 0,
-    paddingLeft: '18px',
-    color: '#475569',
-    fontSize: '12px',
-    lineHeight: '1.6'
-  },
-
-  /* Milestones */
-  milestoneContainer: {
-    borderTop:
-      '1px solid #f1f5f9',
-    paddingTop: '18px'
-  },
-
-  sectionHeaderRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '15px',
-    marginBottom: '15px'
-  },
-
-  sectionTitle: {
-    fontSize: '14px',
-    fontWeight: '700',
-    color: '#0f172a',
-    margin: 0
-  },
-
-  sectionSubtitle: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    margin: '4px 0 0 0'
-  },
-
-  countBadge: {
-    backgroundColor: '#eff6ff',
-    color: '#1d4ed8',
-    fontSize: '11px',
-    fontWeight: '700',
-    padding: '5px 9px',
-    borderRadius: '12px',
-    flexShrink: 0
-  },
-
-  milestoneList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px'
-  },
-
-  milestoneCard: {
-    border:
-      '1px solid #e2e8f0',
-    borderRadius: '10px',
-    padding: '16px',
-    backgroundColor: '#ffffff'
-  },
-
-  milestoneHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '15px'
-  },
-
-  weekBadge: {
-    display: 'inline-block',
-    backgroundColor: '#f1f5f9',
-    color: '#475569',
-    fontSize: '10px',
-    fontWeight: '700',
-    padding: '4px 7px',
-    borderRadius: '6px',
-    marginBottom: '5px'
-  },
-
-  milestoneTitle: {
-    margin: 0,
-    fontSize: '14px',
-    fontWeight: '700',
-    color: '#0f172a'
-  },
-
-  progressBadge: {
-    padding: '5px 9px',
-    borderRadius: '12px',
-    fontSize: '11px',
-    fontWeight: '700',
-    flexShrink: 0
-  },
-
-  milestoneDescription: {
-    fontSize: '12px',
-    color: '#64748b',
-    lineHeight: '1.5',
-    margin: '10px 0'
-  },
-
-  weekStatusRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    marginTop: '10px'
-  },
-
-  smallLabel: {
-    fontSize: '11px',
-    color: '#64748b',
-    fontWeight: '600'
-  },
-
-  statusText: {
-    fontSize: '11px',
-    color: '#334155',
-    fontWeight: '600',
-    textTransform: 'capitalize'
-  },
-
-  weekProgressTrack: {
-    width: '100%',
-    height: '6px',
-    backgroundColor: '#e2e8f0',
-    borderRadius: '4px',
-    overflow: 'hidden',
-    marginTop: '8px'
-  },
-
-  weekProgressBar: {
-    height: '100%',
-    backgroundColor: '#2563eb',
-    borderRadius: '4px',
-    transition:
-      'width 0.3s ease'
-  },
-
-  subSection: {
-    marginTop: '14px'
-  },
-
-  subSectionTitle: {
-    margin: '0 0 7px 0',
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#334155'
-  },
-
-  taskList: {
-    margin: 0,
-    paddingLeft: '18px'
-  },
-
-  taskItem: {
-    fontSize: '12px',
-    color: '#475569',
-    lineHeight: '1.5',
-    marginBottom: '4px'
-  },
-
-  deliverableItem: {
-    fontSize: '12px',
-    color: '#334155',
-    lineHeight: '1.5',
-    marginBottom: '4px'
-  },
-
-  remarksBox: {
-    marginTop: '14px',
-    padding: '10px 12px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '7px'
-  },
-
-  remarksText: {
-    margin: '4px 0 0 0',
-    fontSize: '12px',
-    color: '#475569',
-    lineHeight: '1.5'
-  },
-
-  emptyState: {
-    padding: '20px',
-    textAlign: 'center',
-    color: '#94a3b8',
-    fontSize: '13px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px'
-  }
 };
 
 export default ProjectDetailModal;

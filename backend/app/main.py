@@ -5,6 +5,7 @@ from app.routes.ai_routes import router as ai_router
 from app.routes.student_routes import router as student_router
 from app.routes.skill_routes import router as skill_router
 from app.routes.project_routes import router as project_router
+from app.routes.faculty_routes import router as faculty_router
 
 
 app = FastAPI(
@@ -29,7 +30,7 @@ app.include_router(ai_router)
 app.include_router(student_router)
 app.include_router(skill_router)
 app.include_router(project_router)
-
+app.include_router(faculty_router)
 
 @app.get("/")
 def home():

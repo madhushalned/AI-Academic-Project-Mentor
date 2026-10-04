@@ -127,4 +127,42 @@ def update_project_progress_evaluation(project_id, evaluation):
         return False
 
     return True
-    
+
+def save_weekly_checkin(project_id, checkin_data):
+    """
+    Save a student's weekly check-in.
+    """
+
+    result = projects_collection.update_one(
+        {"project_id": project_id},
+        {
+            "$push": {
+                "weekly_checkins": checkin_data
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        return False
+
+    return True
+
+
+def update_mentor_risk_analysis(project_id, analysis):
+    """
+    Save the latest AI mentor and risk analysis.
+    """
+
+    result = projects_collection.update_one(
+        {"project_id": project_id},
+        {
+            "$set": {
+                "mentor_risk_analysis": analysis
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        return False
+
+    return True
