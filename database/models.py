@@ -60,6 +60,7 @@ class Blueprint(BaseModel):
     original_idea: str
     status: str = "pending"
     version: int = 1
+    progress_percentage: int = 0
     feasibility: Optional[FeasibilitySection] = None
     scope: Optional[ScopeSection] = None
     tech_stack: Optional[TechStackSection] = None
@@ -74,6 +75,7 @@ class CheckIn(BaseModel):
     student_message: str
     mentor_response: Optional[str] = None
     status: str = "on_track"
+    progress_percentage: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class GeneratedDocument(BaseModel):
