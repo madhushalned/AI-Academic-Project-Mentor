@@ -11,6 +11,8 @@ blueprint_validator = {
             "student_id": {"bsonType": "string"},
             "original_idea": {"bsonType": "string"},
             "status": {"enum": ["pending", "in_progress", "completed"]},
+            "progress_percentage": {"bsonType": "int", "minimum": 0, "maximum": 100},
+            "version": {"bsonType": "int", "minimum": 1},
             "feasibility": {"bsonType": ["object", "null"]},
             "scope": {"bsonType": ["object", "null"]},
             "tech_stack": {"bsonType": ["object", "null"]},
@@ -41,10 +43,11 @@ checkin_validator = {
         "required": ["student_id", "week_number", "student_message"],
         "properties": {
             "student_id": {"bsonType": "string"},
-            "week_number": {"bsonType": "int"},
+            "week_number": {"bsonType": "int", "minimum": 1, "maximum": 52},
             "student_message": {"bsonType": "string"},
             "mentor_response": {"bsonType": ["string", "null"]},
             "status": {"enum": ["on_track", "behind", "blocked"]},
+            "progress_percentage": {"bsonType": ["int", "null"], "minimum": 0, "maximum": 100},
             "created_at": {"bsonType": "date"}
         }
     }
@@ -86,7 +89,7 @@ student_validator = {
         "properties": {
             "student_id": {"bsonType": "string"},
             "name": {"bsonType": "string"},
-            "email": {"bsonType": "string"},
+            "email": {"bsonType": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"},
             "team_id": {"bsonType": ["string", "null"]},
             "skills": {"bsonType": "object"},
             "created_at": {"bsonType": "date"}
@@ -159,5 +162,15 @@ def create_collections():
     print("Compound indexes created.")
     print("Indexes created.")
 
+
+def update_validators():
+    """Apply updated validation rules to already-existing collections."""
+    db.command("collMod", "students", validator=student_validator)
+    db.command("collMod", "blueprints", validator=blueprint_validator)
+    db.command("collMod", "check_ins", validator=checkin_validator)
+    print("Validators updated on existing collections.")
+
+
 if __name__ == "__main__":
     create_collections()
+    update_validators()
