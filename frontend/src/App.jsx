@@ -18,7 +18,7 @@ import MilestoneManagement from "./pages/MilestoneManagement";
 import TimelineManagement from "./pages/TimelineManagement";
 import Documents from "./pages/Documents";
 import WeeklyMentor from "./pages/WeeklyMentor/WeeklyMentor";
-
+import FacultyDashboard from "./pages/FacultyDashboard/FacultyDashboard";
 import IntegratedLayout from "./components/IntegratedLayout";
 
 function App() {
@@ -92,7 +92,11 @@ function App() {
           path="/weekly-mentor"
           element={<WeeklyMentor />}
         />
-
+       
+       <Route
+          path="/faculty-dashboard"
+          element={<FacultyDashboard />}
+        />
       </Routes>
     </BrowserRouter>
   );
