@@ -12,6 +12,7 @@ import Login from "./pages/login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/Forgotpassword";
 import Dashboard from "./pages/dashboard";
+import FacultyDashboard from "./pages/FacultyDashboard/FacultyDashboard";
 import Profile from "./pages/Profile";
 
 import MilestoneManagement from "./pages/MilestoneManagement";
@@ -53,6 +54,12 @@ function App() {
         <Route
           path="/dashboard"
           element={<Dashboard />}
+        />
+
+        {/* Faculty Dashboard */}
+        <Route
+          path="/faculty-dashboard"
+          element={<FacultyDashboard />}
         />
 
         {/* Profile */}
