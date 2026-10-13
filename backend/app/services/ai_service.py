@@ -18,7 +18,7 @@ from app.services.project_service import (
 )
 
 import json
-
+from datetime import datetime, timedelta, timezone
 
 # ============================================================
 # PROJECT ANALYSIS
@@ -560,52 +560,115 @@ def evaluate_project_progress(project_data: dict):
 
         # ----------------------------------------------------
         # Determine delayed weeks
+        #
+        # A week is delayed when:
+        # 1. Its own 7-day deadline has passed
+        # 2. That particular week is NOT completed
+        #
+        # Week 1 deadline = project creation + 7 days
+        # Week 2 deadline = project creation + 14 days
+        # Week N deadline = project creation + N * 7 days
+        #
+        # Partial progress does NOT remove a delayed week.
+        # Only 100% completion removes it.
         # ----------------------------------------------------
-
         delayed_weeks = []
 
-        for item in normalized_progress:
+        project_created_at = project_data.get(
+            "created_at"
+        )
 
-            week = item.get(
-                "week"
-            )
+        if project_created_at:
 
-            current_progress = item.get(
-                "current_progress",
-                0
-            )
+            try:
 
-            status = item.get(
-                "status",
-                ""
-            )
+                if isinstance(
+                    project_created_at,
+                    str
+                ):
 
-            if (
-                status.lower() == "delayed"
-                and week is not None
-            ):
+                    created_at = datetime.fromisoformat(
+                        project_created_at.replace(
+                            "Z",
+                            "+00:00"
+                        )
+                    )
 
-                delayed_weeks.append(
-                    week
+                else:
+
+                    created_at = project_created_at
+
+                if created_at.tzinfo is None:
+
+                    created_at = created_at.replace(
+                        tzinfo=timezone.utc
+                    )
+
+                now = datetime.now(
+                    timezone.utc
                 )
 
-            elif (
-                current_progress < 100
-                and status.lower() == "delayed"
-                and week is not None
-            ):
+                for week in planned_weeks:
 
-                delayed_weeks.append(
-                    week
+                    week_progress = progress_by_week.get(
+                        week,
+                        0
+                    )
+
+                    week_item = next(
+                        (
+                            item
+                            for item in normalized_progress
+                            if item.get("week") == week
+                        ),
+                        {}
+                    )
+
+                    week_status = str(
+                        week_item.get(
+                            "status",
+                            ""
+                        )
+                    ).strip().lower()
+
+                    is_completed = (
+                        week_progress >= 100
+                        or week_status == "completed"
+                    )
+
+                    week_deadline = (
+                        created_at
+                        + timedelta(
+                            days=week * 7
+                        )
+                    )
+
+                    if (
+                        now >= week_deadline
+                        and not is_completed
+                    ):
+
+                        delayed_weeks.append(
+                            week
+                        )
+
+            except (
+                TypeError,
+                ValueError
+            ) as e:
+
+                print(
+                    f"Unable to calculate delayed weeks: {e}"
                 )
 
         # Remove duplicates
+
         delayed_weeks = list(
             dict.fromkeys(
                 delayed_weeks
             )
         )
-
+        
         # ----------------------------------------------------
         # Determine current status
         # ----------------------------------------------------

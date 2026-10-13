@@ -179,59 +179,56 @@ const Dashboard = () => {
   // NORMALIZE PROGRESS DATA
   // =====================================================
 
-  const normalizeProgress = (
-    progressList = []
-  ) => {
-    if (!Array.isArray(progressList)) {
-      return [];
-    }
+  const normalizeProgress = (progressList = []) => {
+  if (!Array.isArray(progressList)) {
+    return [];
+  }
 
-    return progressList.map((item) => {
-      const currentProgress = Number(
-        item?.current_progress ??
-          item?.progress ??
-          0
-      );
+  return progressList.map((item) => {
+    const currentProgress = Number(
+      item?.current_progress ?? item?.progress ?? 0
+    );
 
-      const safeProgress = Math.max(
-        0,
-        Math.min(100, currentProgress)
-      );
+    const safeProgress = Math.max(
+      0,
+      Math.min(100, currentProgress)
+    );
 
-      const isCompleted =
-        String(
-          item?.status || ''
-        ).toLowerCase() ===
-          'completed' ||
-        safeProgress >= 100;
+    const rawStatus = String(
+      item?.status || ''
+    )
+      .trim()
+      .toLowerCase();
 
-      const normalizedProgress =
-        isCompleted
-          ? 100
-          : safeProgress;
+    const isCompleted =
+      rawStatus === 'completed' ||
+      safeProgress >= 100;
 
-      const status = isCompleted
-        ? 'Completed'
-        : normalizedProgress > 0
-        ? 'In Progress'
-        : 'Not Started';
+    const isAtRisk =
+      rawStatus === 'at risk' ||
+      rawStatus === 'at-risk';
 
-      return {
-        ...item,
+    const normalizedProgress = isCompleted
+      ? 100
+      : safeProgress;
 
-        week: Number(item?.week),
+    const status = isCompleted
+      ? 'Completed'
+      : isAtRisk
+      ? 'At Risk'
+      : normalizedProgress > 0
+      ? 'In Progress'
+      : 'Not Started';
 
-        status,
-
-        current_progress:
-          normalizedProgress,
-
-        progress:
-          normalizedProgress
-      };
-    });
-  };
-
+    return {
+      ...item,
+      week: Number(item?.week),
+      status,
+      current_progress: normalizedProgress,
+      progress: normalizedProgress
+    };
+  });
+};
   // =====================================================
   // LOAD PROJECTS
   // =====================================================
