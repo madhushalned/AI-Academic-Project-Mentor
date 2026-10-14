@@ -1,10 +1,14 @@
 from connection import get_db
 from models import CheckIn
+from blueprints import update_progress
 
 db = get_db()
 
 def log_checkin(checkin: CheckIn):
-    return db.check_ins.insert_one(checkin.model_dump()).inserted_id
+    result = db.check_ins.insert_one(checkin.model_dump()).inserted_id
+    if checkin.progress_percentage is not None:
+        update_progress(checkin.student_id, checkin.progress_percentage)
+    return result
 
 def get_checkins_for_student(student_id: str):
     """Full check-in history for a student, oldest first."""

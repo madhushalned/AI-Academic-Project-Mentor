@@ -1,11 +1,18 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ProjectDetailModal = ({
   project,
   onClose,
   onMarkWeekComplete,
-  completingWeek
+  completingWeek,
+  onEvaluateProgress,
+  isEvaluatingProgress = false,
+  evaluationError = '',
+  onRetryEvaluation
 }) => {
+  const navigate = useNavigate();
+
   if (!project) {
     return null;
   }
@@ -255,17 +262,27 @@ const ProjectDetailModal = ({
   // AI EVALUATION DATA
   // =====================================================
 
-  const evaluationProgressScore = normalizeProgress(
-    progressEvaluation.progress_score
+  const hasEvaluation = Boolean(
+    progressEvaluation &&
+      typeof progressEvaluation === 'object' &&
+      (progressEvaluation.overall_assessment ||
+        progressEvaluation.current_status ||
+        (progressEvaluation.progress_score !== undefined &&
+          progressEvaluation.progress_score !== null))
   );
 
-  const evaluationStatus =
-    progressEvaluation.current_status ||
-    'Not Evaluated';
+  const evaluationProgressScore = hasEvaluation
+    ? normalizeProgress(progressEvaluation.progress_score)
+    : null;
 
-  const overallAssessment =
-    progressEvaluation.overall_assessment ||
-    'No AI progress evaluation available yet.';
+  const evaluationStatus = hasEvaluation
+    ? (progressEvaluation.current_status || 'Evaluated')
+    : 'Pending Evaluation';
+
+  const overallAssessment = hasEvaluation
+    ? (progressEvaluation.overall_assessment ||
+        'No AI progress evaluation available yet.')
+    : 'No AI progress evaluation has been conducted for this project yet.';
 
   const evaluationCompletedWeeks = Array.isArray(
     progressEvaluation.completed_weeks
@@ -525,293 +542,346 @@ const ProjectDetailModal = ({
         {/* ================================================= */}
 
         <div className="project-section">
+          <div className="section-header-row">
+            <h3>AI Progress Evaluation</h3>
 
-          <h3>AI Progress Evaluation</h3>
-
-          <div className="ai-evaluation-card">
-
-            <div className="evaluation-score">
-              <span className="evaluation-label">
-                AI Progress Score
-              </span>
-
-              <strong>
-                {evaluationProgressScore}%
-              </strong>
-            </div>
-
-            <div className="evaluation-row">
-              <span className="evaluation-label">
-                Overall Assessment
-              </span>
-
-              <p>
-                {overallAssessment}
-              </p>
-            </div>
-
-            <div className="evaluation-row">
-              <span className="evaluation-label">
-                Current Status
-              </span>
-
-              <span className="evaluation-status">
-                {evaluationStatus}
-              </span>
-            </div>
-
-            <div className="evaluation-row">
-              <span className="evaluation-label">
-                Completed Weeks
-              </span>
-
-              <p>
-                {formatWeekList(
-                  evaluationCompletedWeeks
+            {onEvaluateProgress && (
+              <button
+                type="button"
+                className="evaluate-progress-btn"
+                onClick={() => onEvaluateProgress(project.project_id)}
+                disabled={isEvaluatingProgress}
+              >
+                {isEvaluatingProgress ? (
+                  <>
+                    <span className="spinner-icon" aria-hidden="true" />
+                    <span>Evaluating...</span>
+                  </>
+                ) : hasEvaluation ? (
+                  'Re-evaluate Progress'
+                ) : (
+                  'Evaluate Progress'
                 )}
-              </p>
-            </div>
-
-            <div className="evaluation-row">
-              <span className="evaluation-label">
-                Delayed Weeks
-              </span>
-
-              <p>
-                {formatWeekList(
-                  evaluationDelayedWeeks
-                )}
-              </p>
-            </div>
-
-            {issues.length > 0 && (
-              <div className="evaluation-row">
-
-                <span className="evaluation-label">
-                  Issues
-                </span>
-
-                <ul>
-                  {issues.map((issue, index) => (
-                    <li key={index}>
-                      {typeof issue === 'object'
-                        ? JSON.stringify(issue)
-                        : issue}
-                    </li>
-                  ))}
-                </ul>
-
-              </div>
+              </button>
             )}
-
-            {recommendations.length > 0 && (
-              <div className="evaluation-row">
-
-                <span className="evaluation-label">
-                  Recommendations
-                </span>
-
-                <ul>
-                  {recommendations.map(
-                    (recommendation, index) => (
-                      <li key={index}>
-                        {typeof recommendation ===
-                        'object'
-                          ? JSON.stringify(
-                              recommendation
-                            )
-                          : recommendation}
-                      </li>
-                    )
-                  )}
-                </ul>
-
-              </div>
-            )}
-
-            {nextActions.length > 0 && (
-              <div className="evaluation-row">
-
-                <span className="evaluation-label">
-                  Next Actions
-                </span>
-
-                <ul>
-                  {nextActions.map(
-                    (action, index) => (
-                      <li key={index}>
-                        {typeof action === 'object'
-                          ? JSON.stringify(action)
-                          : action}
-                      </li>
-                    )
-                  )}
-                </ul>
-
-              </div>
-            )}
-
           </div>
-        </div>
 
-        {/* ================================================= */}
-        {/* WEEKLY PROGRESS */}
+          {evaluationError && (
+            <div className="evaluation-error-banner" role="alert">
+              <span>{evaluationError}</span>
+              {onRetryEvaluation && (
+                <button
+                  type="button"
+                  className="retry-eval-btn"
+                  onClick={onRetryEvaluation}
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+
+          {isEvaluatingProgress && (
+            <div className="evaluation-loading-banner">
+              <span className="spinner-icon" aria-hidden="true" />
+              <span>
+                Evaluating project progress with AI Mentor... Please wait while milestones and records are analyzed.
+              </span>
+            </div>
+          )}
+
+          {hasEvaluation ? (
+            <div className="ai-evaluation-card">
+              <div className="evaluation-score">
+                <span className="evaluation-label">
+                  AI Progress Score
+                </span>
+
+                <strong>
+                  {evaluationProgressScore}%
+                </strong>
+              </div>
+
+              <div className="evaluation-row">
+                <span className="evaluation-label">
+                  Overall Assessment
+                </span>
+
+                <p>
+                  {overallAssessment}
+                </p>
+              </div>
+
+              <div className="evaluation-row">
+                <span className="evaluation-label">
+                  Current Status
+                </span>
+
+                <span className={`evaluation-status status-${String(evaluationStatus).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+                  {evaluationStatus}
+                </span>
+              </div>
+
+              <div className="evaluation-row">
+                <span className="evaluation-label">
+                  Completed Weeks
+                </span>
+
+                <p>
+                  {formatWeekList(
+                    evaluationCompletedWeeks
+                  )}
+                </p>
+              </div>
+
+              <div className="evaluation-row">
+                <span className="evaluation-label">
+                  Delayed Weeks
+                </span>
+
+                <p>
+                  {formatWeekList(
+                    evaluationDelayedWeeks
+                  )}
+                </p>
+              </div>
+
+              {issues.length > 0 && (
+                <div className="evaluation-row">
+                  <span className="evaluation-label">
+                    Issues
+                  </span>
+
+                  <ul>
+                    {issues.map((issue, index) => (
+                      <li key={index}>
+                        {typeof issue === 'object'
+                          ? JSON.stringify(issue)
+                          : issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommendations.length > 0 && (
+                <div className="evaluation-row">
+                  <span className="evaluation-label">
+                    Recommendations
+                  </span>
+
+                  <ul>
+                    {recommendations.map(
+                      (recommendation, index) => (
+                        <li key={index}>
+                          {typeof recommendation ===
+                          'object'
+                            ? JSON.stringify(
+                                recommendation
+                              )
+                            : recommendation}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {nextActions.length > 0 && (
+                <div className="evaluation-row">
+                  <span className="evaluation-label">
+                    Next Actions
+                  </span>
+
+                  <ul>
+                    {nextActions.map(
+                      (action, index) => (
+                        <li key={index}>
+                          {typeof action === 'object'
+                            ? JSON.stringify(action)
+                            : action}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="ai-evaluation-pending-card">
+              <div className="pending-badge">
+                <span className="pending-dot" />
+                <span>Pending Evaluation</span>
+              </div>
+
+              <div className="pending-content">
+                <h4>No AI progress evaluation has been conducted yet</h4>
+                <p>
+                  This project has planned milestones and progress records, but has not yet been analyzed by the AI Progress Mentor. Click <strong>Evaluate Progress</strong> above to generate an evidence-based assessment of completed milestones, delayed weeks, and schedule recommendations.
+                </p>
+              </div>
+
+              <div className="pending-metrics-grid">
+                <div className="pending-metric">
+                  <span className="pending-metric-label">AI Progress Score</span>
+                  <span className="pending-metric-value">—</span>
+                </div>
+                <div className="pending-metric">
+                  <span className="pending-metric-label">Evaluation Status</span>
+                  <span className="pending-metric-value">Not Evaluated</span>
+                </div>
+                <div className="pending-metric">
+                  <span className="pending-metric-label">Completed Weeks</span>
+                  <span className="pending-metric-value">—</span>
+                </div>
+                <div className="pending-metric">
+                  <span className="pending-metric-label">Delayed Weeks</span>
+                  <span className="pending-metric-value">—</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+        {/* ================================================= */}
+        {/* PLANNED MILESTONES SUMMARY & PROGRESS TRACKING LINK */}
         {/* ================================================= */}
 
         <div className="project-section">
+          <div className="section-header">
+            <div>
+              <h3>Planned Milestones Summary</h3>
+              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '13px' }}>
+                Review high-level milestones or launch full weekly tracking.
+              </p>
+            </div>
 
-          <h3>Weekly Progress</h3>
+            <button
+              type="button"
+              className="view-progress-btn"
+              onClick={() => {
+                const targetId = project?.project_id || project?.id || '';
+                if (targetId) {
+                  localStorage.setItem('activeProjectId', targetId);
+                }
+                onClose();
+                navigate(`/progress-tracking?project_id=${encodeURIComponent(targetId)}`);
+              }}
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                fontSize: '14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(37,99,235,0.2)',
+                transition: 'background-color 0.15s ease'
+              }}
+            >
+              <span>Go to Progress Tracking →</span>
+            </button>
+          </div>
 
-          <div className="weekly-progress-container">
-
-            {plannedWeeks.length === 0 ? (
-              <div className="empty-state">
-                No milestones available.
+          <div
+            className="milestones-summary-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '14px',
+              marginTop: '16px'
+            }}
+          >
+            {milestones.length === 0 ? (
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  padding: '24px',
+                  textAlign: 'center',
+                  background: '#f8fafc',
+                  borderRadius: '10px',
+                  color: '#64748b'
+                }}
+              >
+                No milestone schedule generated yet for this project.
               </div>
             ) : (
-              plannedWeeks.map((week) => {
-
-                const milestone =
-                  getMilestoneForWeek(week);
-
-                const weekProgress =
-                  getWeekProgress(week);
-
-                const completed =
-                  isWeekCompleted(week);
-
-                const weekStatus =
-                  getWeekStatus(week);
-
-                const isCompletingThisWeek =
-                  Number(completingWeek) ===
-                  Number(week);
-
-                return (
-                  <div
-                    className={`weekly-card ${
-                      completed
-                        ? 'weekly-card-completed'
-                        : ''
-                    }`}
-                    key={week}
-                  >
-
-                    {/* ===================================== */}
-                    {/* WEEK HEADER */}
-                    {/* ===================================== */}
-
-                    <div className="weekly-card-header">
-
-                      <div>
-                        <h4>
-                          Week {week}
-                        </h4>
-
-                        {milestone?.title && (
-                          <p className="milestone-title">
-                            {milestone.title}
-                          </p>
-                        )}
-                      </div>
-
+              milestones.map((m, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '8px'
+                      }}
+                    >
                       <span
-                        className={`week-status ${
-                          weekStatus === 'Completed'
-                            ? 'completed'
-                            : weekStatus === 'In Progress'
-                              ? 'in-progress'
-                              : 'not-started'
-                        }`}
+                        style={{
+                          fontWeight: 700,
+                          color: '#1e293b',
+                          fontSize: '13px'
+                        }}
                       >
-                        {weekStatus}
+                        Week {m.week || idx + 1}
                       </span>
-
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#475569',
+                          background: '#e2e8f0',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontWeight: 500
+                        }}
+                      >
+                        Planned Milestone
+                      </span>
                     </div>
 
-                    {/* ===================================== */}
-                    {/* MILESTONE DESCRIPTION */}
-                    {/* ===================================== */}
+                    <h4
+                      style={{
+                        margin: '0 0 6px 0',
+                        fontSize: '14px',
+                        color: '#0f172a',
+                        fontWeight: 600
+                      }}
+                    >
+                      {m.title || `Milestone ${idx + 1}`}
+                    </h4>
 
-                    {milestone?.description && (
-                      <div className="milestone-description">
-
-                        <strong>
-                          Planned Work
-                        </strong>
-
-                        <p>
-                          {milestone.description}
-                        </p>
-
-                      </div>
+                    {m.description && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: '13px',
+                          color: '#475569',
+                          lineHeight: 1.45
+                        }}
+                      >
+                        {m.description}
+                      </p>
                     )}
-
-                    {/* ===================================== */}
-                    {/* WEEK PROGRESS */}
-                    {/* ===================================== */}
-
-                    <div className="weekly-progress-section">
-
-                      <div className="weekly-progress-header">
-
-                        <span>
-                          Progress
-                        </span>
-
-                        <strong>
-                          {weekProgress}%
-                        </strong>
-
-                      </div>
-
-                      <div className="progress-bar">
-
-                        <div
-                          className="progress-fill"
-                          style={{
-                            width: `${weekProgress}%`
-                          }}
-                        />
-
-                      </div>
-
-                    </div>
-
-                    {/* ===================================== */}
-                    {/* ACTION */}
-                    {/* ===================================== */}
-
-                    <div className="weekly-actions">
-
-                      {!completed ? (
-                        <button
-                          type="button"
-                          className="complete-week-btn"
-                          onClick={() =>
-                            handleCompleteWeek(week)
-                          }
-                          disabled={
-                            isCompletingThisWeek
-                          }
-                        >
-                          {isCompletingThisWeek
-                            ? 'Completing...'
-                            : 'Mark Week Complete'}
-                        </button>
-                      ) : (
-                        <div className="completed-message">
-                          ✓ Week Completed
-                        </div>
-                      )}
-
-                    </div>
-
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
-
           </div>
         </div>
 
@@ -1114,6 +1184,185 @@ const ProjectDetailModal = ({
         /* ============================================= */
         /* AI EVALUATION */
         /* ============================================= */
+
+        .section-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        .section-header-row h3 {
+          margin: 0;
+        }
+
+        .evaluate-progress-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          background: #2563eb;
+          color: #ffffff;
+          border: none;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+        .evaluate-progress-btn:hover:not(:disabled) {
+          background: #1d4ed8;
+          transform: translateY(-1px);
+        }
+
+        .evaluate-progress-btn:disabled {
+          background: #93c5fd;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .evaluation-error-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 16px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 10px;
+          color: #991b1b;
+          font-size: 13px;
+          font-weight: 500;
+          margin-bottom: 16px;
+        }
+
+        .retry-eval-btn {
+          padding: 4px 12px;
+          background: #dc2626;
+          color: #ffffff;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .retry-eval-btn:hover {
+          background: #b91c1c;
+        }
+
+        .evaluation-loading-banner {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 16px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 10px;
+          color: #1e40af;
+          font-size: 13px;
+          font-weight: 500;
+          margin-bottom: 16px;
+        }
+
+        .spinner-icon {
+          width: 14px;
+          height: 14px;
+          border: 2px solid currentColor;
+          border-right-color: transparent;
+          border-radius: 50%;
+          display: inline-block;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        .ai-evaluation-pending-card {
+          border: 1px solid #e5e7eb;
+          border-radius: 14px;
+          padding: 22px;
+          background: #fcfcfd;
+        }
+
+        .pending-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 5px 10px;
+          background: #fef3c7;
+          color: #92400e;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          margin-bottom: 14px;
+        }
+
+        .pending-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #f59e0b;
+        }
+
+        .pending-content h4 {
+          margin: 0 0 8px;
+          font-size: 15px;
+          color: #1f2937;
+          font-weight: 600;
+        }
+
+        .pending-content p {
+          margin: 0 0 18px;
+          font-size: 13px;
+          color: #4b5563;
+          line-height: 1.6;
+        }
+
+        .pending-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin-top: 14px;
+          border-top: 1px solid #f3f4f6;
+          padding-top: 16px;
+        }
+
+        @media (max-width: 700px) {
+          .pending-metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        .pending-metric {
+          background: #f9fafb;
+          border: 1px solid #f3f4f6;
+          border-radius: 8px;
+          padding: 10px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .pending-metric-label {
+          font-size: 11px;
+          color: #6b7280;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+
+        .pending-metric-value {
+          font-size: 16px;
+          color: #374151;
+          font-weight: 600;
+        }
 
         .ai-evaluation-card {
           border: 1px solid #e5e7eb;

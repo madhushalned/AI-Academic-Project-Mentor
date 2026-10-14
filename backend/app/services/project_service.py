@@ -32,13 +32,16 @@ def create_project(project):
     return project_data
 
 
-def get_projects():
+def get_projects(student_id=None):
     """
-    Get all projects from MongoDB.
+    Get projects from MongoDB, optionally filtered by student_id.
     """
+    query = {}
+    if student_id:
+        query["student_id"] = student_id
 
     projects = list(
-        projects_collection.find()
+        projects_collection.find(query)
     )
 
     return projects
@@ -130,16 +133,33 @@ def update_project_progress_evaluation(project_id, evaluation):
 
 def save_weekly_checkin(project_id, checkin_data):
     """
-    Save a student's weekly check-in.
+    Save or update a student's weekly check-in, preventing duplicate records for the same week.
     """
+    project = projects_collection.find_one({"project_id": project_id})
+    if project is None:
+        return False
+
+    checkins = project.get("weekly_checkins", [])
+    if not isinstance(checkins, list):
+        checkins = []
+
+    target_week = checkin_data.get("week")
+    new_checkins = []
+    updated = False
+    for c in checkins:
+        if isinstance(c, dict) and c.get("week") == target_week:
+            if not updated:
+                new_checkins.append(checkin_data)
+                updated = True
+        else:
+            new_checkins.append(c)
+
+    if not updated:
+        new_checkins.append(checkin_data)
 
     result = projects_collection.update_one(
         {"project_id": project_id},
-        {
-            "$push": {
-                "weekly_checkins": checkin_data
-            }
-        }
+        {"$set": {"weekly_checkins": new_checkins}}
     )
 
     if result.matched_count == 0:

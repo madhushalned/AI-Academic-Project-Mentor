@@ -1,12 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../common/sidebar';
-import Header from '../common/header';
+import Sidebar from '../common/Sidebar';
+import Header from '../common/Header';
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'activeProjectId';
 
 const IntegratedLayout = ({ children }) => {
   const navigate = useNavigate();
+
+  const student = React.useMemo(() => {
+    try {
+      const raw =
+        localStorage.getItem('student') ||
+        sessionStorage.getItem('student');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('student');
@@ -28,8 +39,9 @@ const IntegratedLayout = ({ children }) => {
       <div className="integrated-main">
         <Header
           user={{
-            name: 'Student',
+            name: student?.name || 'Student',
             role: 'Student',
+            profile_picture: student?.profile_picture || null,
           }}
           onProfileClick={handleProfileClick}
         />

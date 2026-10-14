@@ -30,3 +30,9 @@ def update_blueprint_status(student_id: str, status: str):
         {"student_id": student_id},
         {"$set": {"status": status, "updated_at": datetime.utcnow()}}
     )
+
+def update_progress(student_id: str, percentage: int):
+    return db.blueprints.update_one(
+        {"student_id": student_id},
+        {"$set": {"progress_percentage": percentage, "updated_at": datetime.utcnow()}}
+    )

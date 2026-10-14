@@ -18,7 +18,15 @@ const Header = ({ user = { name: 'Student', role: 'Student' }, onProfileClick })
 {/* User Badge */}
 <div style={styles.profileBadge} onClick={onProfileClick}>
  <div style={styles.avatar}>
-{user.name ? user.name.charAt(0) : 'S'}
+  {user.profile_picture ? (
+    <img
+      src={user.profile_picture}
+      alt={user.name || "Student"}
+      style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+    />
+  ) : (
+    user.name ? user.name.charAt(0) : 'S'
+  )}
  </div>
  <span style={styles.roleText}>{user.role || 'Student'}</span>
  <svg width="14" height="14" fill="none" stroke="#94a3b8" viewBox="0 0 24 24">

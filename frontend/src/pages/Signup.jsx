@@ -8,6 +8,7 @@ const Signup = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [role, setRole] = useState("student");
 
   const {
     register,
@@ -21,20 +22,34 @@ const Signup = () => {
   // Connect Signup form to FastAPI
   const onSubmit = async (data) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/students/", {
+      const endpoint =
+        role === "faculty"
+          ? "http://127.0.0.1:8000/faculty/register"
+          : "http://127.0.0.1:8000/students/";
+
+      const payload =
+        role === "faculty"
+          ? {
+              name: data.fullName,
+              email: data.email,
+              password: data.password,
+              department: "Computer Science",
+            }
+          : {
+              student_id: data.email,
+              name: data.fullName,
+              email: data.email,
+              password: data.password,
+              team_id: null,
+              skills: {},
+            };
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          // Using email as the student ID for the current backend schema
-          student_id: data.email,
-          name: data.fullName,
-          email: data.email,
-          password: data.password,
-          team_id: null,
-          skills: {},
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -46,7 +61,7 @@ const Signup = () => {
 
       console.log("Signup successful:", result);
 
-      alert("Account created successfully!");
+      alert(`${role === "faculty" ? "Faculty" : "Student"} account created successfully!`);
 
       // Redirect to login page
       navigate("/login");
@@ -85,6 +100,21 @@ const Signup = () => {
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)}>
+
+          {/* Role Selector */}
+          <div className="form-group">
+            <label htmlFor="signup-role">Register as</label>
+            <select
+              id="signup-role"
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+              className="role-select"
+              aria-label="Select registration role"
+            >
+              <option value="student">Student</option>
+              <option value="faculty">Faculty Member</option>
+            </select>
+          </div>
 
           {/* Full Name */}
           <div className="form-group">
@@ -365,7 +395,7 @@ const Signup = () => {
 
           {/* Submit Button */}
           <button type="submit" className="create-account-btn">
-            Create Account
+            Create {role === "faculty" ? "Faculty" : "Student"} Account
           </button>
         </form>
 

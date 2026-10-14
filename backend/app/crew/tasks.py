@@ -1,742 +1,1373 @@
 from crewai import Task
 
+
+
 from app.crew.agents import (
+
     project_analysis_agent,
+
     feasibility_agent,
+
     technology_agent,
+
     planning_agent,
+
     risk_agent,
+
     progress_mentor_agent,
+
     weekly_mentor_agent,
+
     document_generation_agent,
+
     faculty_summary_agent
-    
+
+
+
 )
+
+
 
 from app.schemas.analysis_schema import (
+
     ScopeAnalysis,
+
     FeasibilityAnalysis,
+
     TechnologyRecommendation,
+
     MilestonePlan,
+
     RiskAssessment,
+
     ProgressEvaluation,
+
     MentorRiskAnalysis
+
 )
 
 
+
+
+
 # ============================================================
+
 # 1. PROJECT ANALYSIS TASK
+
 # ============================================================
+
+
 
 project_analysis_task = Task(
+
     description=(
+
         "Analyze the student's academic project carefully and define a "
+
         "realistic scope suitable for a student project.\n\n"
 
+
+
         "Project Title: {title}\n"
+
         "Project Description: {description}\n"
+
         "Domain: {domain}\n\n"
 
+
+
         "Identify:\n"
+
         "1. The main problem being addressed.\n"
+
         "2. Clear and measurable project objectives.\n"
+
         "3. Functionalities that MUST be included in the project.\n"
+
         "4. Features that are reasonable but optional.\n"
+
         "5. Features that should explicitly remain outside the scope.\n"
+
         "6. Expected technical outcomes.\n\n"
 
+
+
         "IMPORTANT RULES:\n"
+
         "- Keep the scope realistic for an academic student project.\n"
+
         "- Do not introduce unrelated features.\n"
+
         "- Do not expand the project beyond the description.\n"
+
         "- Avoid unrealistic commercial or enterprise requirements.\n"
+
         "- Focus on software development, implementation, testing, and "
+
         "evaluation.\n"
+
         "- If the project involves AI/ML, include dataset preparation, "
+
         "model development, evaluation, and integration where appropriate.\n"
+
         "- Do not assume cloud deployment is required unless the project "
+
         "description clearly requires it.\n\n"
 
+
+
         "STRICT SCOPE CONTROL:\n"
+
         "- Every in-scope functionality must be directly supported by the "
+
         "project description.\n"
+
         "- Do not introduce unrelated features or requirements.\n"
+
         "- Do not introduce databases, APIs, dashboards, real-time systems, "
+
         "mobile applications, cloud deployment, or external integrations "
+
         "unless they are explicitly required by the project description.\n"
+
         "- Do not assume a particular technology, platform, database, or "
+
         "external service unless it is justified by the stated requirements.\n"
+
         "- If the project involves AI/ML, include only the AI/ML activities "
+
         "that are appropriate for the stated problem, such as data preparation, "
+
         "model development, training, evaluation, and integration where "
+
         "applicable.\n"
+
         "- If the project involves image processing, focus only on the image "
+
         "processing or computer vision functionality explicitly required.\n"
+
         "- If the project involves recommendations, include recommendations "
+
         "only when they are explicitly part of the project requirements.\n"
+
         "- Do not add domain-specific features that are not mentioned in the "
+
         "project description.\n"
+
         "- Keep the scope focused on the actual problem, objectives, and "
+
         "requirements provided by the student."
+
     ),
 
+
+
     expected_output=(
+
         "A structured academic project analysis containing the problem "
+
         "statement, objectives, in-scope items, out-of-scope items, "
+
         "key functionalities, and expected outcomes."
+
     ),
+
+
 
     agent=project_analysis_agent,
 
+
+
     output_pydantic=ScopeAnalysis
+
 )
 
 
+
+
+
 # ============================================================
+
 # 2. FEASIBILITY TASK
+
 # ============================================================
+
+
 
 feasibility_task = Task(
+
     description=(
+
         "Evaluate whether the student's academic project is realistically "
+
         "feasible for a student development team.\n\n"
 
+
+
         "Project Title: {title}\n"
+
         "Project Description: {description}\n"
+
         "Domain: {domain}\n\n"
+
+
 
         "Use the Project Analysis result provided as context.\n\n"
 
+
+
         "Evaluate the following:\n"
+
         "1. Technical feasibility.\n"
+
         "2. Time feasibility.\n"
+
         "3. Resource feasibility.\n"
+
         "4. Required technical skills.\n"
+
         "5. Dataset or data availability if applicable.\n"
+
         "6. Implementation complexity.\n"
+
         "7. Integration complexity.\n"
+
         "8. Major limitations.\n\n"
 
+
+
         "Provide:\n"
+
         "- A feasibility score from 0 to 100.\n"
+
         "- A decision such as 'Feasible', 'Partially feasible', or "
+
         "'Not feasible'.\n"
+
         "- Major strengths.\n"
+
         "- Major concerns.\n"
+
         "- Practical recommendations.\n\n"
 
+
+
         "IMPORTANT RULES:\n"
+
         "- Judge feasibility for a student academic project, not a "
+
         "commercial production system.\n"
+
         "- Do not require expensive infrastructure unless necessary.\n"
+
         "- Prefer publicly available datasets and free/open-source tools.\n"
+
         "- Do not recommend field experiments, external experts, or "
+
         "large-scale deployment unless explicitly required.\n"
+
         "- If the scope is too large, recommend reducing the scope rather "
+
         "than expanding resources.\n"
+
         "- Do not introduce feasibility concerns for features that are "
+
         "not actually required by the project description.\n"
+
         "- Base concerns and recommendations only on the defined project "
+
         "scope and actual technical requirements."
 
+
+
         "- Treat all functionality explicitly mentioned in the project "
+
         "description as an existing project requirement.\n"
+
         "- If the project description includes disease-related recommendations, "
+
         "treat those recommendations as part of the current project scope.\n"
+
         "- Do not describe disease-related recommendations as a future feature "
+
         "or optional expansion.\n"
+
         "- Disease-related recommendations can be generated locally using "
+
         "predefined rules, project knowledge, or the AI/ML system output; "
+
         "do not assume an external API is required.\n"
+
     ),
 
+
+
     expected_output=(
+
         "A structured feasibility assessment containing a score, decision, "
+
         "strengths, concerns, and practical recommendations."
+
     ),
+
+
 
     agent=feasibility_agent,
 
+
+
     context=[project_analysis_task],
 
+
+
     output_pydantic=FeasibilityAnalysis
+
 )
 
 
+
+
+
 # ============================================================
+
 # 3. TECHNOLOGY RECOMMENDATION TASK
+
 # ============================================================
+
+
 
 technology_task = Task(
+
     description=(
+
         "Recommend a practical technology stack for the student's "
+
         "academic project.\n\n"
 
+
+
         "Project Title: {title}\n"
+
         "Project Description: {description}\n"
+
         "Domain: {domain}\n\n"
 
+
+
         "Use the previous project analysis and feasibility assessment "
+
         "as context.\n\n"
 
+
+
         "Recommend:\n"
+
         "1. Programming language(s).\n"
+
         "2. Frameworks and libraries.\n"
+
         "3. ONE primary database if a database is required.\n"
+
         "4. AI/ML techniques if applicable.\n"
+
         "5. Development tools.\n"
+
         "6. External APIs only if genuinely necessary.\n"
+
         "7. A concise justification for the complete technology stack.\n\n"
 
+
+
         "IMPORTANT TECHNOLOGY RULES:\n"
+
         "- Recommend technologies based directly on the project "
+
         "requirements.\n"
+
         "- Prefer free and open-source technologies.\n"
+
         "- Do not recommend multiple competing databases.\n"
+
         "- Recommend a database only when the project requirements "
+
         "actually need persistent structured data storage.\n"
+
         "- If a database is required, select ONE primary database and "
+
         "explain why it is suitable.\n"
+
         "- Do not recommend Google Cloud Vision, Azure Computer Vision, "
+
         "or similar external APIs when the project itself develops and "
+
         "trains its own computer vision model.\n"
+
         "- Do not recommend unnecessary cloud services.\n"
+
         "- Do not recommend technologies merely because they are popular.\n"
+
         "- Every recommended technology must have a clear purpose.\n"
+
         "- Keep the stack simple enough for a student team to implement "
+
         "and maintain.\n\n"
+
         "- Training datasets, image files, CSV files, model files, and temporary "
+
         "files do not by themselves justify using a database.\n"
+
         "- If persistent application data storage is not explicitly required by "
+
         "the project description, the database field MUST be [].\n"
+
         "- If the project only requires image input, prediction, evaluation, "
+
         "and recommendations, do not recommend a database.\n"
 
+
+
         "DECISION EXAMPLES:\n"
+
         "- For a project that accepts leaf images, preprocesses them, "
+
         "runs plant disease classification, evaluates the ML model, "
+
         "and displays the prediction, the database field MUST be [].\n"
+
         "- The project description must explicitly require persistent "
+
         "application data storage before any database is recommended.\n"
+
         "- Do NOT recommend PostgreSQL, MongoDB, SQLite, MySQL, or any "
+
         "other database merely because the software could store data.\n"
+
         "- OpenCV, TensorFlow, Keras, NumPy, Pandas, Scikit-image, "
+
         "Matplotlib, and similar Python packages are libraries/tools, "
+
         "NOT external APIs.\n"
+
         "- If image processing can be performed locally with Python "
+
         "libraries, do not list an external API.\n"
+
         "- If no external web service is explicitly required, the APIs "
+
         "field MUST be [].\n"
+
         "- The API field MUST contain only external web services such as "
+
         "Google Cloud Vision API, Azure Computer Vision API, or another "
+
         "remote service explicitly required by the project.\n"
+
         "- NEVER place OpenCV, TensorFlow, Keras, NumPy, Pandas, a local "
+
         "Python module, a database, or a model file in the APIs field.\n"
 
+
+
         "IMPORTANT API RULE:\n"
+
         "- The APIs field must contain only actual external APIs required by "
+
         "the project.\n"
+
         "- If no external API is required, return an empty list: [].\n"
+
         "- Never use placeholder values such as 'None', 'N/A', 'Not required', "
+
         "'No API', or 'None required'.\n"
+
         "- Do not treat Python libraries, frameworks, local modules, databases, "
+
         "or model files as APIs.\n"
+
         "- Only include an API when the project description explicitly requires "
+
         "an external service or when a required functionality genuinely depends "
+
         "on one.\n"
+
     ),
 
+
+
     expected_output=(
+
         "A structured technology recommendation containing programming "
+
         "languages, frameworks, one primary database where required, "
+
         "AI/ML techniques, development tools, necessary APIs, and "
+
         "justification."
+
     ),
+
+
 
     agent=technology_agent,
 
+
+
     context=[feasibility_task],
 
+
+
     output_pydantic=TechnologyRecommendation
+
 )
 
 
+
+
+
 # ============================================================
+
 # 4. MILESTONE PLANNING TASK
+
 # ============================================================
+
+
 
 planning_task = Task(
+
     description=(
+
         "Create a realistic implementation plan for the student's "
+
         "academic project.\n\n"
 
+
+
         "Project Title: {title}\n"
+
         "Project Description: {description}\n"
+
         "Domain: {domain}\n\n"
 
+
+
         "Use the previous project analysis, feasibility assessment, "
+
         "and technology recommendation as context.\n\n"
+
+
 
         "Create a realistic week-by-week implementation plan.\n\n"
 
+
+
         "For each milestone include:\n"
+
         "1. Week number.\n"
+
         "2. Milestone title.\n"
+
         "3. Specific development tasks.\n"
+
         "4. Task priorities.\n"
+
         "5. Dependencies.\n"
+
         "6. Estimated timeline.\n"
+
         "7. Concrete software/project deliverables.\n\n"
 
+
+
         "IMPORTANT RULES:\n"
+
         "- Create approximately 6 to 10 weeks depending on project "
+
         "complexity.\n"
+
         "- Do not create unnecessary milestones.\n"
+
         "- Dependencies must refer to actual previous project outputs.\n"
+
         "Deliverables should be concrete artifacts appropriate to the project, "
+
         "such as datasets, source code, trained models, required APIs, required "
+
         "database modules, UI components, test reports, evaluation results, "
+
         "or documentation. Only include an artifact when it is actually "
+
         "required by the project.\n"
+
         "- Do not use vague deliverables such as 'work completed'.\n"
+
         "- Do not add commercial deployment unless required.\n"
+
         "- Do not introduce technologies that were not recommended.\n"
+
         "- AI/ML projects should normally include data preparation, "
+
         "model development, training, evaluation, integration, and "
+
         "testing.\n"
+
         "- Include final integration and testing before project completion.\n\n"
+
         "- If the technology recommendation has database=[], DO NOT create "
+
         "any database development or database integration milestone.\n"
+
         "- Never create a milestone for storing training datasets or training "
+
         "images in a database unless explicitly required by the project.\n"
+
         "- Do not introduce dashboards, analytics, data visualization, or "
+
         "reporting systems unless they are explicitly required.\n"
+
         "- The milestone plan must follow the actual project requirements rather "
+
         "than automatically adding common software components.\n"
 
+
+
         "STRICT DEPLOYMENT RULE:\n"
+
         "- Do NOT include deployment as a milestone unless deployment is "
+
         "explicitly required in the project description.\n"
+
         "- For an academic prototype, prioritize local implementation, "
+
         "testing, evaluation, and demonstration.\n"
+
         "- Never add AWS, Azure, Google Cloud, cloud hosting, server "
+
         "deployment, or production deployment merely because it is "
+
         "technically possible.\n"
+
         "- Do not create a deployment dependency when deployment is not "
+
         "required.\n\n"
 
+
+
         "PLANNING ORDER:\n"
+
         "- Follow a logical implementation sequence.\n"
+
         "- Data preparation must occur before model training.\n"
+
         "- Model development must occur before model evaluation.\n"
+
         "- Required backend/database components should be developed "
+
         "before final integration.\n"
+
         "- UI components should be integrated after the required backend "
+
         "functionality is available.\n"
+
         "- Final testing and evaluation must occur after all required "
+
         "components are integrated."
+
     ),
 
+
+
     expected_output=(
+
         "A structured milestone plan containing realistic weekly milestones. "
+
         "Each milestone must contain week, title, tasks, priorities, "
+
         "dependencies, timeline, and concrete deliverables."
+
     ),
+
+
 
     agent=planning_agent,
 
+
+
     context=[technology_task],
 
+
+
     output_pydantic=MilestonePlan
+
 )
 
 
+
+
+
 # ============================================================
+
 # 5. RISK ASSESSMENT TASK
+
 # ============================================================
+
+
 
 risk_task = Task(
+
     description=(
+
         "Identify realistic risks that could affect successful completion "
+
         "of the student's academic project.\n\n"
 
+
+
         "Project Title: {title}\n"
+
         "Project Description: {description}\n"
+
         "Domain: {domain}\n\n"
 
+
+
         "Use the previous project analysis, feasibility assessment, "
+
         "technology recommendation, and project plan as context.\n\n"
 
+
+
         "Consider risks related to:\n"
+
         "1. Technical implementation.\n"
+
         "2. Dataset or data availability.\n"
+
         "3. Model performance if AI/ML is involved.\n"
+
         "4. Development schedule.\n"
+
         "5. Team skills.\n"
+
         "6. Integration between components.\n"
+
         "7. Testing and validation.\n"
+
         "8. Scope changes.\n"
+
         "9. Software or technology dependencies.\n"
+
         "10. Hardware or computational limitations.\n\n"
 
+
+
         "For each important risk provide:\n"
+
         "- Risk description.\n"
+
         "- Likelihood: Low, Medium, or High.\n"
+
         "- Impact: Low, Medium, or High.\n"
+
         "- A practical mitigation strategy.\n\n"
 
+
+
         "IMPORTANT RULES:\n"
+
         "- Risks must be directly relevant to the project.\n"
+
         "- Avoid duplicate risks.\n"
+
         "- Mitigation strategies must be achievable by a student team.\n"
+
         "- Do not suggest hiring consultants, freelancers, or external "
+
         "experts.\n"
+
         "- Do not recommend paid external services unless explicitly "
+
         "required by the project.\n"
+
         "- Do not recommend cloud infrastructure merely as a default "
+
         "solution.\n"
+
         "- Prefer practical solutions such as reducing scope, using "
+
         "public datasets, data augmentation, modular development, "
+
         "backup technologies, version control, testing, and regular "
+
         "progress reviews.\n"
+
         "- Do not create risks for technologies that are not being used.\n\n"
 
+
+
         "HARDWARE LIMITATION RULE:\n"
+
         "- For hardware limitations, prefer smaller models, transfer "
+
         "learning, reduced image resolution, batch-size adjustment, "
+
         "CPU/GPU optimization, or Google Colab when available.\n"
+
         "- Do not recommend distributed computing or paid cloud GPU "
+
         "infrastructure unless explicitly required.\n\n"
 
+
+
         "TEAM SKILL RULE:\n"
+
         "- If team skills are limited, recommend internal learning, "
+
         "documentation, tutorials, pair programming, code reviews, "
+
         "modular development, or simplifying the implementation.\n"
+
         "- Do not recommend hiring consultants, freelancers, or "
+
         "external experts."
+
     ),
 
+
+
     expected_output=(
+
         "A structured risk assessment containing a list of realistic and "
+
         "project-specific risks. Each risk must contain risk description, "
+
         "likelihood, impact, and a practical mitigation strategy."
+
     ),
+
+
 
     agent=risk_agent,
 
+
+
     context=[planning_task],
 
+
+
     output_pydantic=RiskAssessment
+
 )
 
+
+
 progress_evaluation_task = Task(
+
     description="""
+
     Evaluate the student's current project progress.
 
+
+
     Project title:
+
     {title}
 
+
+
     Project description:
+
     {description}
 
+
+
     Domain:
+
     {domain}
 
+
+
     Planned milestones:
+
     {milestones}
 
+
+
     Student progress:
+
     {progress}
+
+
 
     Compare the student's actual progress with the planned milestones.
 
+
+
     Requirements:
+
     1. Calculate an overall progress score from 0 to 100.
+
     2. Identify completed weeks.
+
     3. Identify delayed or incomplete weeks.
+
     4. Determine the current project status.
+
     5. Identify specific issues affecting progress.
+
     6. Provide practical recommendations.
+
     7. Provide clear next actions for the student.
+
     8. Base the evaluation only on the supplied project and progress data.
+
     9. Do not invent completed work.
 
+
+
     VERY IMPORTANT:
+
     Return ONLY valid JSON.
+
     Do not use Markdown.
+
     Do not use ```json.
+
     Do not add explanations before or after the JSON.
 
+
+
     The JSON must have exactly these fields:
+
     {
+
         "overall_assessment": "string",
+
         "progress_score": 0,
+
         "completed_weeks": [],
+
         "delayed_weeks": [],
+
         "current_status": "string",
+
         "issues": [],
+
         "recommendations": [],
+
         "next_actions": []
+
     }
 
+
+
     progress_score must be a number from 0 to 100.
+
     completed_weeks and delayed_weeks must contain week numbers.
+
     issues, recommendations, and next_actions must contain strings.
+
     """,
 
+
+
     expected_output=(
+
         "Valid JSON only with the fields: overall_assessment, "
+
         "progress_score, completed_weeks, delayed_weeks, "
+
         "current_status, issues, recommendations, next_actions."
+
     ),
 
-    agent=progress_mentor_agent
+
+
+    agent=progress_mentor_agent,
+
+    output_pydantic=ProgressEvaluation
+
 )
+
+
 
 weekly_mentor_task = Task(
     description="""
-    Analyze the student's weekly project update and provide academic
-    mentorship focused on progress, blockers, risks, resolutions, and
-    possible plan adjustments.
+Analyze the student's weekly project update and provide evidence-based
+academic mentorship.
 
-    Project:
-    Title: {title}
-    Description: {description}
-    Domain: {domain}
+PROJECT INFORMATION
+Title: {title}
+Description: {description}
+Domain: {domain}
 
-    Planned Milestones:
-    {milestones}
+PLANNED MILESTONES
+{milestones}
 
-    Weekly Student Update:
-    Week: {week}
-    Completed Work: {completed_work}
-    Current Progress: {current_progress}%
-    Blockers: {blockers}
-    Next Goals: {next_goals}
-    Remarks: {remarks}
+CURRENT PROJECT STATUS
+{current_project_status}
 
-    Analyze the update against the planned milestones.
+LATEST PROGRESS EVALUATION
+{progress_evaluation}
 
-    Identify:
-    1. Important risks or problems emerging from the update.
-    2. Current blockers affecting project progress.
-    3. Practical resolutions for each blocker.
-    4. Recommendations to keep the project on schedule.
-    5. Immediate next actions.
-    6. Whether the existing project plan needs adjustment.
-    7. If adjustment is required, suggest a realistic adjusted plan.
+WEEKLY STUDENT UPDATE
+Week: {week}
+Completed Work: {completed_work}
+Current Progress: {current_progress}%
+Blockers: {blockers}
+Next Goals: {next_goals}
+Remarks: {remarks}
 
-    Focus only on the student's academic project.
-    Do not introduce unnecessary features, technologies, databases,
-    APIs, deployment requirements, or unrelated work.
+EVIDENCE-BASED RULES
 
-    Return ONLY valid JSON using exactly these fields:
+1. Use only the supplied project information and recorded evidence.
+   Never invent completed work, deadlines, delays, blockers, or achievements.
 
-    {
-        "overall_assessment": "string",
-        "identified_risks": ["string"],
-        "blockers": ["string"],
-        "resolutions": ["string"],
-        "recommendations": ["string"],
-        "plan_adjustment_required": true,
-        "adjusted_plan": ["string"],
-        "next_actions": ["string"]
-    }
+2. Compare the weekly update with the relevant planned milestone and
+   the latest progress evaluation when available.
 
-    Do not use Markdown.
-    """,
+3. Do not conclude that the project is behind schedule merely because
+   later weeks appear in the milestone plan. A delay must be supported
+   by actual schedule or progress evidence.
 
-    expected_output="""
-    A structured weekly mentor analysis containing:
-    overall_assessment,
-    identified_risks,
-    blockers,
-    resolutions,
-    recommendations,
-    plan_adjustment_required,
-    adjusted_plan,
-    next_actions.
-    """,
+4. If the current project status is "Completed" or the latest progress
+   evaluation reports 100%, do not automatically recommend extending
+   the timeline. Check the weekly update for genuine contradictions.
 
+5. If the weekly update conflicts with the current status or progress
+   evaluation, describe the discrepancy and recommend verifying the
+   records. Do not silently choose one interpretation.
+
+6. Interpret statements such as "no blockers", "I have no blockers",
+   or "I haven't got blockers" as indicating that the student reports
+   no blockers. Never list such statements as actual blockers.
+
+7. An empty blocker field means no blocker was reported in that update.
+   It does not prove that a blocker exists or that every project risk
+   has been eliminated.
+
+8. Distinguish current blockers from historical blockers and potential
+   risks. Treat historical blockers as current only if the supplied
+   evidence indicates they remain unresolved.
+
+9. Set plan_adjustment_required to true only when the evidence supports
+   a concrete plan change, such as a confirmed delay, unresolved
+   dependency, or necessary scope change.
+
+10. If a plan adjustment is not justified, set
+    plan_adjustment_required to false and adjusted_plan to [].
+
+11. If the evidence is conflicting or insufficient to justify a plan
+    change, set plan_adjustment_required to false, explain the
+    uncertainty, and recommend verification. Do not invent a new
+    timeline or adjusted milestones.
+
+12. Provide practical resolutions, recommendations, and next actions
+    that directly relate to the student's project.
+
+13. Do not introduce unrelated features, technologies, databases,
+    APIs, deployment requirements, or unnecessary work.
+
+RETURN FORMAT
+Return only valid JSON with exactly these fields:
+{
+  "overall_assessment": "string",
+  "identified_risks": ["string"],
+  "blockers": ["string"],
+  "resolutions": ["string"],
+  "recommendations": ["string"],
+  "plan_adjustment_required": false,
+  "adjusted_plan": [],
+  "next_actions": ["string"]
+}
+
+The plan_adjustment_required field must be a JSON boolean.
+Use strings for overall_assessment and array elements.
+Do not use Markdown or code fences in the generated JSON.
+""",
+    expected_output=(
+        "A valid JSON object containing overall_assessment, identified_risks, "
+        "blockers, resolutions, recommendations, plan_adjustment_required, "
+        "adjusted_plan, and next_actions. Conclusions must be supported by "
+        "the supplied evidence."
+    ),
     agent=weekly_mentor_agent,
-
     output_pydantic=MentorRiskAnalysis
 )
 
 # ============================================================
+
 # 8. FACULTY MONITORING SUMMARY TASK
+
 # ============================================================
+
+
 
 faculty_summary_task = Task(
     description="""
-    Generate a concise academic monitoring summary for a faculty member
-    supervising a student's project.
+    Generate a concise, factual academic monitoring summary for a faculty
+    member supervising the student's project.
 
-    Project Information:
+    PROJECT INFORMATION
     Title: {title}
     Description: {description}
     Domain: {domain}
 
-    Planned Milestones:
+    PLANNED MILESTONES
     {milestones}
 
-    Current Progress:
+    CURRENT PROGRESS RECORDS
     {progress}
 
-    Progress Evaluation:
+    PROGRESS EVALUATION
     {progress_evaluation}
 
-    Weekly Check-ins:
+    WEEKLY CHECK-IN HISTORY
     {weekly_checkins}
 
-    Mentor and Risk Analysis:
+    LATEST MENTOR AND RISK ANALYSIS
     {mentor_risk_analysis}
 
-    Initial Project Risks:
+    INITIAL PROJECT RISKS
     {risks}
 
-    Analyze the supplied information and provide a concise faculty-oriented
-    summary.
+    EVIDENCE AND CONSISTENCY RULES
+    1. Use only supplied records. Never invent activities, dates, delays,
+       blockers, explanations, or achievements.
+    2. Treat current progress records and progress evaluation as primary
+       evidence for the currently recorded completion status.
+    3. Treat weekly check-ins as history. Repeated submissions may exist;
+       do not assume an older check-in represents the latest state.
+    4. Distinguish completing a milestone from completing it on time.
+       Completed status or 100% progress alone does not prove it met its
+       deadline.
+    5. Do not label the project behind schedule based only on an older
+       mentor assessment. Require explicit schedule/deadline evidence or
+       a delay supported by the supplied progress evaluation.
+    6. If progress records conflict with the latest mentor/risk assessment,
+       describe the discrepancy and recommend faculty review. Do not
+       silently choose one conflicting interpretation.
+    7. Distinguish initial project risks, historical blockers, currently
+       reported blockers, and risks explicitly identified as active.
+       Do not automatically treat every initial risk as active.
+    8. Missing blocker details are a reporting gap, not proof of an active
+       blocker or proof that the project is at risk.
+    9. Do not claim that work took longer, a timeline was extended, or
+       milestones were completed on time unless supplied records support it.
+    10. Recommend plan adjustment only when the evidence supports it.
+        If evidence is conflicting or insufficient, recommend review.
+    11. Keep the summary concise, neutral, and suitable for a faculty
+        dashboard. Do not calculate or invent numerical progress scores.
+    12. Do not modify or imply that stored project data has been changed.
 
-    The summary must:
-    1. Describe the current state of the project.
-    2. Highlight important progress observations.
-    3. Identify the most important risks or blockers.
-    4. Mention whether the existing plan may require adjustment.
-    5. Provide practical points that faculty should be aware of.
-    6. Recommend appropriate follow-up actions when necessary.
-
-    IMPORTANT RULES:
-    - Use ONLY the information supplied in the project data.
-    - Do not invent progress, completed work, risks, or student activities.
-    - Do not introduce unrelated features or technologies.
-    - Do not make assumptions about information that is not provided.
-    - Keep the summary concise and suitable for a faculty dashboard.
-    - Focus on academic project supervision.
-    - Do not calculate or invent numerical progress scores.
-    - Do not change any stored project data.
-
-    Return ONLY valid JSON using exactly these fields:
-
+    Return ONLY valid JSON with exactly these fields:
     {
-        "mentor_summary": "string",
-        "key_progress_observations": ["string"],
-        "key_risks": ["string"],
-        "faculty_attention": ["string"],
-        "recommended_follow_up": ["string"]
+      "mentor_summary": "string",
+      "key_progress_observations": ["string"],
+      "key_risks": ["string"],
+      "faculty_attention": ["string"],
+      "recommended_follow_up": ["string"]
     }
 
-    Do not use Markdown.
-    Do not use ```json.
-    Do not add explanations before or after the JSON.
+    Do not use Markdown or code fences. Do not add explanations before or
+    after the JSON.
     """,
-
-    expected_output="""
-    A valid JSON object containing:
-    mentor_summary,
-    key_progress_observations,
-    key_risks,
-    faculty_attention,
-    recommended_follow_up.
-    """,
-
+    expected_output=(
+        "A valid JSON object containing mentor_summary, "
+        "key_progress_observations, key_risks, faculty_attention, "
+        "and recommended_follow_up."
+    ),
     agent=faculty_summary_agent
 )
 
-# ============================================================
+
 # 9. DOCUMENT GENERATION TASK
+
 # ============================================================
+
+
 
 document_generation_task = Task(
+
     description="""
+
     Generate an academic project document based strictly on the
+
     information supplied by the student project.
 
+
+
     Project Information:
+
     Title: {title}
+
     Description: {description}
+
     Domain: {domain}
+
     Expected Outcome: {expected_outcome}
 
+
+
     AI Project Analysis:
+
     {ai_analysis}
 
+
+
     Planned Milestones:
+
     {milestones}
 
+
+
     Project Risks:
+
     {risks}
 
+
+
     Recorded Progress:
+
     {progress}
 
+
+
     Progress Evaluation:
+
     {progress_evaluation}
 
+
+
     Requested Document Type:
+
     {document_type}
 
+
+
     Supported document types:
+
     1. synopsis
+
     2. methodology
+
     3. progress_report
+
+
 
     DOCUMENT RULES:
 
+
+
     SYNOPSIS:
+
     Generate a concise academic synopsis containing:
+
     - Project title
+
     - Problem statement
+
     - Project objectives
+
     - Proposed approach
+
     - Main technologies or methods actually identified
+
     - Expected outcome
+
     - Project scope
 
+
+
     METHODOLOGY:
+
     Generate a structured methodology containing:
+
     - Problem understanding
+
     - Data preparation or input preparation when applicable
+
     - System/model development approach
+
     - Training or implementation process when applicable
+
     - Evaluation approach
+
     - Integration/testing approach
+
     - Technologies and methods actually present in the project
 
+
+
     PROGRESS REPORT:
+
     Generate a factual progress report containing:
+
     - Project overview
+
     - Planned milestones
+
     - Completed weeks
+
     - Current progress
+
     - Delayed or incomplete work
+
     - Current issues/blockers
+
     - Risks
+
     - Recommendations
+
     - Next actions
+
+
 
     IMPORTANT ACADEMIC RULES:
 
+
+
     - Use ONLY the information supplied in the input.
+
     - Do not invent results, accuracy values, datasets, experiments,
+
       technologies, completed work, or achievements.
+
     - Do not claim that an incomplete milestone is completed.
+
     - Do not introduce new project features.
+
     - Do not add databases, APIs, deployment, cloud services,
+
       dashboards, or external integrations unless they are explicitly
+
       present in the supplied project information.
+
     - Keep the document appropriate for an academic student project.
+
     - Use clear professional academic language.
+
     - Organize the document with headings and paragraphs.
+
     - Do not use Markdown code fences.
+
     - Do not return JSON.
+
     - Return only the generated document text.
+
     """,
+
+
 
     expected_output="""
+
     A complete academic document in plain text with appropriate headings,
+
     based strictly on the supplied project information.
+
     """,
 
+
+
     agent=document_generation_agent
+
 )
