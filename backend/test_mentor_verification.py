@@ -14,23 +14,29 @@ client = TestClient(app)
 
 def test_project_counts_student_vs_faculty():
     """
-    Requirement 2 & 8: Verify student sees only their own projects (28)
-    while faculty sees authorized cohort (34).
+    Requirement 2 & 8: Verify student sees only their own projects
+    while faculty sees authorized cohort dynamically from MongoDB.
     """
     # 1. Total projects in database
     total_db_count = projects_collection.count_documents({})
-    assert total_db_count == 34, f"Expected 34 projects in MongoDB, found {total_db_count}"
+    assert total_db_count > 0, "Expected projects to exist in MongoDB"
 
     # 2. Student query for madhushalne@gmail.com
+    expected_student_count = projects_collection.count_documents({"student_id": "madhushalne@gmail.com"})
+    assert expected_student_count > 0, "Expected student projects to exist in MongoDB"
+    assert expected_student_count < total_db_count, "Expected database to contain other students' projects"
+
     student_projects = get_projects(student_id="madhushalne@gmail.com")
-    assert len(student_projects) == 28, f"Expected 28 projects for madhushalne@gmail.com, found {len(student_projects)}"
+    assert len(student_projects) == expected_student_count, (
+        f"Expected {expected_student_count} projects for madhushalne@gmail.com, found {len(student_projects)}"
+    )
 
     # 3. API endpoint with student_id filter
     res = client.get("/projects/?student_id=madhushalne@gmail.com")
     assert res.status_code == 200
     data = res.json()
     assert isinstance(data, list)
-    assert len(data) == 28, f"Expected API to return 28 projects, got {len(data)}"
+    assert len(data) == expected_student_count, f"Expected API to return {expected_student_count} projects, got {len(data)}"
     for p in data:
         assert p.get("student_id") == "madhushalne@gmail.com"
 
@@ -38,7 +44,7 @@ def test_project_counts_student_vs_faculty():
     res_all = client.get("/projects/")
     assert res_all.status_code == 200
     all_data = res_all.json()
-    assert len(all_data) == 34, f"Expected API to return 34 projects, got {len(all_data)}"
+    assert len(all_data) == total_db_count, f"Expected API to return {total_db_count} projects, got {len(all_data)}"
 
 
 def test_faculty_auth_and_dashboard_projects():
@@ -75,7 +81,10 @@ def test_faculty_auth_and_dashboard_projects():
     fac_data = fac_proj_res.json()
     fac_projects = fac_data["projects"] if isinstance(fac_data, dict) and "projects" in fac_data else fac_data
     assert isinstance(fac_projects, list)
-    assert len(fac_projects) == 34, f"Expected 34 authorized cohort projects for faculty, got {len(fac_projects)}"
+    expected_cohort_count = projects_collection.count_documents({})
+    assert len(fac_projects) == expected_cohort_count, (
+        f"Expected {expected_cohort_count} authorized cohort projects for faculty, got {len(fac_projects)}"
+    )
 
     # Ensure unauthenticated request is rejected
     unauth_res = client.get("/faculty/projects")

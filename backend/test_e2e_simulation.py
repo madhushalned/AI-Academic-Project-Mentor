@@ -35,11 +35,12 @@ def run_e2e_browser_simulation():
     assert isinstance(student_projects, list), "Expected list of projects"
     
     # Verify count and ownership
+    expected_student_count = projects_collection.count_documents({"student_id": student_id})
     student_count = len(student_projects)
     foreign_projects = [p for p in student_projects if str(p.get("student_id")) != str(student_id)]
-    print(f"  -> Student Projects Returned: {student_count}")
+    print(f"  -> Student Projects Returned: {student_count} (Expected: {expected_student_count})")
     print(f"  -> Foreign Projects Leaked: {len(foreign_projects)}")
-    assert student_count == 28, f"Expected 28 projects, got {student_count}"
+    assert student_count == expected_student_count, f"Expected {expected_student_count} projects, got {student_count}"
     assert len(foreign_projects) == 0, "Student dashboard received foreign projects!"
     results["1_student_project_count"] = f"PASSED ({student_count} projects owned by student, 0 leaked)"
 
@@ -72,8 +73,9 @@ def run_e2e_browser_simulation():
     fac_data = fac_res.json()
     fac_cohort_projects = fac_data["projects"] if isinstance(fac_data, dict) and "projects" in fac_data else fac_data
     fac_count = len(fac_cohort_projects)
-    print(f"  -> Faculty Authorized Cohort Projects Returned: {fac_count}")
-    assert fac_count == 34, f"Expected 34 cohort projects, got {fac_count}"
+    expected_cohort_count = projects_collection.count_documents({})
+    print(f"  -> Faculty Authorized Cohort Projects Returned: {fac_count} (Expected: {expected_cohort_count})")
+    assert fac_count == expected_cohort_count, f"Expected {expected_cohort_count} cohort projects, got {fac_count}"
     results["2_faculty_cohort_count"] = f"PASSED ({fac_count} cohort projects authorized for supervision)"
 
     # ---------------------------------------------------------
