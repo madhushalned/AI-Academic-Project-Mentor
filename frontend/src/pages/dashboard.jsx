@@ -40,6 +40,8 @@ const Dashboard = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEvaluatingProgress, setIsEvaluatingProgress] =
     useState(false);
+  const [evaluationError, setEvaluationError] =
+    useState('');
 
   // =====================================================
   // PROGRESS STATES
@@ -984,19 +986,44 @@ const Dashboard = () => {
         project.project_id
       );
 
+      setEvaluationError('');
+
       console.log(
         'OPENING PROJECT DETAILS:',
         project.project_id
       );
 
+      let latestProject = project;
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/projects/${encodeURIComponent(project.project_id)}`
+        );
+        if (response.ok) {
+          const freshData = await response.json();
+          latestProject = {
+            ...project,
+            ...freshData,
+            progress_evaluation:
+              freshData.progress_evaluation ?? project.progress_evaluation ?? null,
+            ai_analysis:
+              freshData.ai_analysis || project.ai_analysis || {}
+          };
+        }
+      } catch (err) {
+        console.warn(
+          'Unable to fetch latest project details, falling back to cached project:',
+          err
+        );
+      }
+
       const progress =
         await loadProjectProgress(
-          project
+          latestProject
         );
 
       const milestones =
         await loadProjectMilestones(
-          project
+          latestProject
         );
 
       console.log(
@@ -1011,7 +1038,7 @@ const Dashboard = () => {
         );
 
       const projectWithProgress = {
-        ...project,
+        ...latestProject,
 
         progress,
 
@@ -1021,7 +1048,7 @@ const Dashboard = () => {
           overallProgress,
 
         ai_analysis: {
-          ...(project.ai_analysis ||
+          ...(latestProject.ai_analysis ||
             {}),
 
           milestones
@@ -1062,6 +1089,8 @@ const Dashboard = () => {
       setCompletingWeek(
         null
       );
+
+      setEvaluationError('');
     };
 
   // =====================================================
@@ -1180,6 +1209,8 @@ const Dashboard = () => {
 
       progressEvaluationRunningRef.current =
         true;
+
+      setEvaluationError('');
 
       setIsEvaluatingProgress(
         true
@@ -1413,10 +1444,11 @@ const Dashboard = () => {
           return null;
         }
 
-        alert(
+        const errMsg =
           error?.message ||
-            'Unable to connect to the progress evaluation service.'
-        );
+          'Unable to connect to the progress evaluation service.';
+
+        setEvaluationError(errMsg);
 
         return null;
       } finally {
@@ -2182,6 +2214,16 @@ const Dashboard = () => {
 
             isEvaluatingProgress={
               isEvaluatingProgress
+            }
+
+            evaluationError={
+              evaluationError
+            }
+
+            onRetryEvaluation={() =>
+              handleProgressEvaluation(
+                selectedProject?.project_id
+              )
             }
 
             onMarkWeekComplete={

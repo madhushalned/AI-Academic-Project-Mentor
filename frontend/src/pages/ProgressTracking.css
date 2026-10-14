@@ -1,0 +1,530 @@
+/* =========================================================
+   PROGRESS TRACKING STYLES
+   AI Academic Project Mentor
+   Light-Grey, Blue, and White Theme
+   ========================================================= */
+
+.progress-tracking-page {
+  padding: 28px 32px 60px;
+  background-color: #f4f6fb;
+  min-height: calc(100vh - 72px);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
+}
+
+.tracking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.tracking-header-title h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.tracking-header-title p {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.project-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.project-selector-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.project-select-dropdown {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  min-width: 240px;
+  max-width: 380px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-select-dropdown:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* KPI Summary Cards */
+.tracking-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.tracking-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tracking-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.kpi-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kpi-main-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.kpi-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.kpi-badge.completed { background: #dcfce7; color: #15803d; }
+.kpi-badge.in-progress { background: #dbeafe; color: #1d4ed8; }
+.kpi-badge.at-risk { background: #fee2e2; color: #b91c1c; }
+.kpi-badge.delayed { background: #fef3c7; color: #b45309; }
+.kpi-badge.not-started { background: #f1f5f9; color: #64748b; }
+
+.kpi-subtext {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.kpi-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.kpi-progress-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.kpi-progress-fill.planned {
+  background: #6366f1;
+}
+
+/* Prediction Banner Card */
+.prediction-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.prediction-card.insufficient {
+  border-left: 5px solid #f59e0b;
+}
+
+.prediction-card.predicted {
+  border-left: 5px solid #2563eb;
+}
+
+.prediction-card.stalled {
+  border-left: 5px solid #ef4444;
+}
+
+.prediction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.prediction-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prediction-title-group h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.prediction-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.prediction-tag.amber {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.prediction-tag.blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.prediction-tag.red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.prediction-body {
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.prediction-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.prediction-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.prediction-stat-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.prediction-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Two Column Layout for Tracking & Submission */
+.tracking-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .tracking-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Milestones Timeline List */
+.tracking-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  margin-bottom: 24px;
+}
+
+.tracking-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.milestones-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.milestone-schedule-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.milestone-schedule-item.is-completed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.milestone-schedule-item.is-delayed {
+  border-color: #fed7aa;
+  background: #fffbeb;
+}
+
+.milestone-schedule-item.is-blocked {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.milestone-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.milestone-week-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.milestone-title-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 4px 0 6px 0;
+}
+
+.milestone-desc-text {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0 0 10px 0;
+}
+
+.milestone-progress-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.milestone-progress-track {
+  flex: 1;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.milestone-progress-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 3px;
+}
+
+.milestone-progress-percent {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Checkin Form */
+.checkin-form-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  position: sticky;
+  top: 90px;
+}
+
+.checkin-form-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.checkin-form-card p {
+  margin: 0 0 18px 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.form-control {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.submit-checkin-btn {
+  width: 100%;
+  padding: 11px 16px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.submit-checkin-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.submit-checkin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alert-message {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.alert-message.success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.alert-message.error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Past Check-ins History List */
+.checkin-history-item {
+  border-left: 3px solid #2563eb;
+  background: #f8fafc;
+  border-radius: 0 10px 10px 0;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.checkin-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.checkin-history-week {
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.checkin-history-date {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.checkin-history-bullets {
+  margin: 6px 0 0 18px;
+  padding: 0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.checkin-history-bullets li {
+  margin-bottom: 4px;
+}

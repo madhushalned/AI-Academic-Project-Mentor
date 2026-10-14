@@ -79,7 +79,9 @@ function App() {
           path="/profile"
           element={
             <StudentRoute>
-              <Profile />
+              <IntegratedLayout>
+                <StudentProfile />
+              </IntegratedLayout>
             </StudentRoute>
           }
         />

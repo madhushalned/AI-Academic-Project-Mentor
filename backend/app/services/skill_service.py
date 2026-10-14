@@ -63,18 +63,20 @@ def get_skill_assessment_by_student_id(student_id):
 
 def update_skill_assessment(student_id, skill_data):
     """
-    Update an existing skill assessment for a student.
+    Update an existing skill assessment for a student, or create if not present.
     """
 
     update_data = skill_data.model_dump(exclude_unset=True)
+    update_data["assessment_date"] = datetime.utcnow()
 
-    result = skill_assessments_collection.update_one(
+    skill_assessments_collection.update_one(
         {"student_id": student_id},
-        {"$set": update_data}
+        {
+            "$set": update_data,
+            "$setOnInsert": {"student_id": student_id}
+        },
+        upsert=True
     )
-
-    if result.matched_count == 0:
-        return None
 
     updated_assessment = skill_assessments_collection.find_one(
         {"student_id": student_id}

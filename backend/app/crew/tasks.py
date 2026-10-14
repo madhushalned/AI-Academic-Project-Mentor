@@ -982,7 +982,9 @@ progress_evaluation_task = Task(
 
 
 
-    agent=progress_mentor_agent
+    agent=progress_mentor_agent,
+
+    output_pydantic=ProgressEvaluation
 
 )
 
