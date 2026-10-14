@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../common/sidebar';
-import Header from '../common/header';
+import Sidebar from '../common/Sidebar';
+import Header from '../common/Header';
 import IdeaSubmissionModal from '../component/ideaSubmission';
 import AIAnalysis from '../component/AIAnalysis';
 import ProjectDetailModal from '../component/ProjectDetailModal';
@@ -249,8 +249,12 @@ const Dashboard = () => {
           return;
         }
 
+        const queryParam = student?.student_id
+          ? `?student_id=${encodeURIComponent(student.student_id)}`
+          : '';
+
         const response = await fetch(
-          `${API_BASE_URL}/projects/`
+          `${API_BASE_URL}/projects/${queryParam}`
         );
 
         const data =
@@ -274,16 +278,12 @@ const Dashboard = () => {
           return;
         }
 
-        const studentProjects =
-          data.filter(
-            (project) =>
-              String(
-                project.student_id
-              ) ===
-              String(
-                student.student_id
-              )
-          );
+        const studentProjects = student?.student_id
+          ? data.filter(
+              (project) =>
+                String(project.student_id) === String(student.student_id)
+            )
+          : data;
 
         const formattedProjects =
           studentProjects.map(

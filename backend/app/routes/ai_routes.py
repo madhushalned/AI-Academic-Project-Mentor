@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-
 from pydantic import BaseModel
+from datetime import datetime
 
 
 
@@ -77,19 +77,14 @@ class ProgressEvaluationRequest(BaseModel):
 
 
 class WeeklyMentorRequest(BaseModel):
-
     project_id: str
-
     week: int
-
     completed_work: list[str] = []
-
     current_progress: int
-
     blockers: list[str] = []
-
     next_goals: list[str] = []
-
+    pending_work: list[str] = []
+    hours_spent: float | None = None
     remarks: str | None = None
 
 
@@ -459,74 +454,52 @@ def weekly_mentor_endpoint(
 
 
     checkin_data = {
-
         "week": request.week,
-
         "completed_work": request.completed_work,
-
         "current_progress": request.current_progress,
-
         "blockers": request.blockers,
-
         "next_goals": request.next_goals,
-
-        "remarks": request.remarks
-
+        "pending_work": request.pending_work or [],
+        "hours_spent": request.hours_spent,
+        "remarks": request.remarks,
+        "submitted_at": datetime.utcnow().isoformat()
     }
 
-
-
     try:
-
-
-
         # ----------------------------------------------------
-
         # Step 3: Save weekly student update
-
         # ----------------------------------------------------
-
-
-
         saved = save_weekly_checkin(
-
             request.project_id,
-
             checkin_data
-
         )
-
-
 
         if not saved:
-
-
-
             raise HTTPException(
-
                 status_code=500,
-
                 detail="Failed to save weekly check-in"
-
             )
 
-
-
         # ----------------------------------------------------
-
-        # Step 4: Run AI Mentor analysis
-
+        # Step 4: Run AI Mentor analysis with graceful fallback
         # ----------------------------------------------------
-
-
-
-        analysis = analyze_weekly_mentor_update(
-
-            project,
-
-            checkin_data
-
-        )
+        try:
+            analysis = analyze_weekly_mentor_update(
+                project,
+                checkin_data
+            )
+        except Exception as ai_err:
+            print(f"Weekly AI mentor analysis fallback: {ai_err}")
+            analysis = {
+                "summary": f"Week {request.week} check-in recorded successfully. Live AI mentor evaluation is temporarily offline.",
+                "status": "In Progress" if request.current_progress < 100 else "Completed",
+                "recommendations": [
+                    "Continue with planned milestone tasks for upcoming week.",
+                    "Review active blockers with your academic supervisor if assistance is needed."
+                ],
+                "identified_risks": [],
+                "blockers": request.blockers or []
+            }
 
 
 

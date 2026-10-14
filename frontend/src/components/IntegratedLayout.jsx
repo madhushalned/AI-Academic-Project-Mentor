@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../common/sidebar';
-import Header from '../common/header';
+import Sidebar from '../common/Sidebar';
+import Header from '../common/Header';
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'activeProjectId';
 

@@ -1,20 +1,60 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr
 
+from app.services.faculty_auth_service import (
+    authenticate_faculty,
+    register_faculty,
+    get_current_faculty,
+)
 from app.services.project_service import (
     get_projects,
     get_project_by_id,
 )
-
-from app.services.ai_service import (
-    generate_faculty_summary,
-)
+from app.services.ai_service import generate_faculty_summary
+from app.database import students_collection
 
 
 router = APIRouter(
     prefix="/faculty",
     tags=["Faculty Monitoring"],
 )
+
+
+# ============================================================
+# FACULTY REGISTRATION & LOGIN
+# ============================================================
+
+class FacultyRegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    department: str = "Computer Science"
+
+
+@router.post("/register")
+def faculty_register(data: FacultyRegisterRequest):
+    """Register a new faculty account."""
+    return register_faculty(
+        name=data.name,
+        email=str(data.email).strip().lower(),
+        password=data.password,
+        department=data.department,
+    )
+
+
+class FacultyLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/login")
+def faculty_login(data: FacultyLoginRequest):
+    """Authenticate a faculty member and return a JWT token."""
+    return authenticate_faculty(
+        email=str(data.email).strip().lower(),
+        password=data.password,
+    )
 
 
 # ============================================================
@@ -70,14 +110,13 @@ def get_valid_progress_score(progress_evaluation):
     return None
 
 
-def calculate_progress_from_records(progress):
+def calculate_progress_from_records(progress, total_planned=None):
     """
-    Calculate average recorded weekly progress only when no valid
-    progress evaluation score is available.
+    Calculate verified progress based on weekly progress records: (1/N) * sum(p_w).
+    """
+    if not isinstance(progress, list) or not progress:
+        return 0.0
 
-    This is a fallback indicator, not necessarily the application's
-    official overall progress calculation.
-    """
     weekly_scores = []
 
     for week in progress:
@@ -87,7 +126,7 @@ def calculate_progress_from_records(progress):
         status = str(week.get("status", "")).strip().lower()
 
         if status == "completed":
-            weekly_scores.append(100)
+            weekly_scores.append(100.0)
             continue
 
         score = week.get(
@@ -100,12 +139,13 @@ def calculate_progress_from_records(progress):
             and not isinstance(score, bool)
             and 0 <= score <= 100
         ):
-            weekly_scores.append(score)
+            weekly_scores.append(float(score))
 
     if not weekly_scores:
-        return None
+        return 0.0
 
-    return round(sum(weekly_scores) / len(weekly_scores), 2)
+    divisor = total_planned if total_planned and total_planned > 0 else len(weekly_scores)
+    return round(sum(weekly_scores) / divisor, 1)
 
 
 # ============================================================
@@ -113,11 +153,29 @@ def calculate_progress_from_records(progress):
 # ============================================================
 
 @router.get("/projects")
-def get_faculty_projects():
+def get_faculty_projects(
+    current_faculty: dict = Depends(get_current_faculty),
+):
+    """Return project monitoring data to authenticated faculty."""
     projects = get_projects()
+    student_ids = [p.get("student_id") for p in projects if p.get("student_id")]
+    student_map = {}
+    if student_ids:
+        try:
+            for s in students_collection.find({"student_id": {"$in": student_ids}}):
+                student_map[s["student_id"]] = s.get("name") or s.get("email") or s["student_id"]
+        except Exception:
+            student_map = {}
+
     faculty_projects = []
 
     for project in projects:
+        student_id = project.get("student_id")
+        student_name = (
+            student_map.get(student_id)
+            or project.get("student_name")
+            or (f"Student ({student_id})" if student_id else "Student")
+        )
         ai_analysis = safe_dict(project.get("ai_analysis"))
         progress = safe_list(project.get("progress"))
         progress_evaluation = safe_dict(
@@ -131,23 +189,26 @@ def get_faculty_projects():
         # PROGRESS SCORE
         # ----------------------------------------------------
 
+        milestones = safe_list(ai_analysis.get("milestones"))
+        total_planned = len(milestones) if milestones else len(progress)
+
         progress_score = get_valid_progress_score(
             progress_evaluation
         )
 
         if progress_score is None:
             progress_score = calculate_progress_from_records(
-                progress
+                progress,
+                total_planned=total_planned
             )
 
         if progress_score is None:
-            progress_score = 0
+            progress_score = 0.0
 
         # ----------------------------------------------------
         # RISKS AND BLOCKERS
         # ----------------------------------------------------
 
-        # Initial risks are kept separate from mentor-identified risks.
         initial_risks = unique_items(
             safe_list(ai_analysis.get("risks"))
         )
@@ -169,9 +230,6 @@ def get_faculty_projects():
             is True
         )
 
-        # Risk count represents unique mentor-identified risks.
-        # Initial risks are returned separately to avoid combining
-        # potentially overlapping risk lists.
         risk_count = len(mentor_risks)
         initial_risk_count = len(initial_risks)
         blocker_count = len(blockers)
@@ -182,19 +240,14 @@ def get_faculty_projects():
 
         if blocker_count > 0:
             health = "Needs Attention"
-
         elif plan_adjustment_required:
             health = "Needs Attention"
-
         elif progress_score < 40:
             health = "Needs Attention"
-
         elif progress_score < 70:
             health = "Moderate"
-
         elif risk_count > 0:
             health = "Moderate"
-
         else:
             health = "Healthy"
 
@@ -211,9 +264,11 @@ def get_faculty_projects():
         completed_weeks = [
             week
             for week in progress
-            if isinstance(week, dict)
-            and str(week.get("status", "")).strip().lower()
-            == "completed"
+            if (
+                isinstance(week, dict)
+                and str(week.get("status", "")).strip().lower()
+                == "completed"
+            )
         ]
 
         if (
@@ -256,27 +311,23 @@ def get_faculty_projects():
 
         faculty_projects.append({
             "project_id": project.get("project_id"),
-            "student_id": project.get("student_id"),
+            "student_id": student_id,
+            "student_name": student_name,
             "title": project.get("title"),
+            "description": project.get("description", ""),
             "domain": project.get("domain"),
             "status": project.get("status"),
-
             "progress_score": progress_score,
             "health": health,
-
             "risk_count": risk_count,
             "initial_risk_count": initial_risk_count,
             "blocker_count": blocker_count,
-
-            "plan_adjustment_required": (
-                plan_adjustment_required
-            ),
-
+            "plan_adjustment_required": plan_adjustment_required,
             "consistency_warnings": consistency_warnings,
-
             "progress": progress,
             "progress_evaluation": progress_evaluation,
             "mentor_risk_analysis": mentor_risk_analysis,
+            "ai_analysis": ai_analysis,
         })
 
     return {
@@ -290,7 +341,11 @@ def get_faculty_projects():
 # ============================================================
 
 @router.get("/projects/{project_id}/summary")
-def get_faculty_project_summary(project_id: str):
+def get_faculty_project_summary(
+    project_id: str,
+    current_faculty: dict = Depends(get_current_faculty),
+):
+    """Return an AI-generated summary to authenticated faculty."""
     project = get_project_by_id(project_id)
 
     if project is None:
@@ -309,7 +364,6 @@ def get_faculty_project_summary(project_id: str):
         }
 
     except Exception:
-        # Log the full exception on the server if logging is configured.
         raise HTTPException(
             status_code=500,
             detail="Faculty summary generation failed.",

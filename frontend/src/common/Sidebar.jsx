@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 
   {
     label: 'Timeline',
-    route: '/timeline',
+    route: '/progress-tracking',
     icon: 'M4 6h16M4 12h16M4 18h16'
   },
 
@@ -35,6 +35,11 @@ const NAV_ITEMS = [
     label: 'Profile',
     route: '/profile',
     icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
+  }  ,
+  {
+    label: 'Skill Assessment',
+    route: '/skill-assessment',
+    icon: 'M9 12l2 2 4-4m5-1a9 9 0 11-18 0 9 9 0 0118 0z'
   }
 ];
 
@@ -63,7 +68,10 @@ const Sidebar = ({ onLogout }) => {
         >
           {NAV_ITEMS.map((item) => {
             const isActive =
-              location.pathname === item.route;
+              location.pathname === item.route ||
+              (item.route === '/progress-tracking' &&
+                (location.pathname === '/progress-tracking' ||
+                  location.pathname === '/timeline'));
 
             return (
               <button
@@ -143,6 +151,10 @@ const styles = {
   sidebar: {
     width: '240px',
     minHeight: '100vh',
+    maxHeight: '100vh',
+    overflowY: 'auto',
+    position: 'sticky',
+    top: 0,
     backgroundColor: '#ffffff',
     borderRight: '1px solid #e2e8f0',
     display: 'flex',

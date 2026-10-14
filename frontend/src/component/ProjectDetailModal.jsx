@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ProjectDetailModal = ({
   project,
@@ -6,6 +7,8 @@ const ProjectDetailModal = ({
   onMarkWeekComplete,
   completingWeek
 }) => {
+  const navigate = useNavigate();
+
   if (!project) {
     return null;
   }
@@ -653,165 +656,145 @@ const ProjectDetailModal = ({
 
           </div>
         </div>
-
-        {/* ================================================= */}
-        {/* WEEKLY PROGRESS */}
+        {/* ================================================= */}
+        {/* PLANNED MILESTONES SUMMARY & PROGRESS TRACKING LINK */}
         {/* ================================================= */}
 
         <div className="project-section">
+          <div className="section-header">
+            <div>
+              <h3>Planned Milestones Summary</h3>
+              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '13px' }}>
+                Review high-level milestones or launch full weekly tracking.
+              </p>
+            </div>
 
-          <h3>Weekly Progress</h3>
+            <button
+              type="button"
+              className="view-progress-btn"
+              onClick={() => {
+                const targetId = project?.project_id || project?.id || '';
+                if (targetId) {
+                  localStorage.setItem('activeProjectId', targetId);
+                }
+                onClose();
+                navigate(`/progress-tracking?project_id=${encodeURIComponent(targetId)}`);
+              }}
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                fontSize: '14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(37,99,235,0.2)',
+                transition: 'background-color 0.15s ease'
+              }}
+            >
+              <span>Go to Progress Tracking →</span>
+            </button>
+          </div>
 
-          <div className="weekly-progress-container">
-
-            {plannedWeeks.length === 0 ? (
-              <div className="empty-state">
-                No milestones available.
+          <div
+            className="milestones-summary-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '14px',
+              marginTop: '16px'
+            }}
+          >
+            {milestones.length === 0 ? (
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  padding: '24px',
+                  textAlign: 'center',
+                  background: '#f8fafc',
+                  borderRadius: '10px',
+                  color: '#64748b'
+                }}
+              >
+                No milestone schedule generated yet for this project.
               </div>
             ) : (
-              plannedWeeks.map((week) => {
-
-                const milestone =
-                  getMilestoneForWeek(week);
-
-                const weekProgress =
-                  getWeekProgress(week);
-
-                const completed =
-                  isWeekCompleted(week);
-
-                const weekStatus =
-                  getWeekStatus(week);
-
-                const isCompletingThisWeek =
-                  Number(completingWeek) ===
-                  Number(week);
-
-                return (
-                  <div
-                    className={`weekly-card ${
-                      completed
-                        ? 'weekly-card-completed'
-                        : ''
-                    }`}
-                    key={week}
-                  >
-
-                    {/* ===================================== */}
-                    {/* WEEK HEADER */}
-                    {/* ===================================== */}
-
-                    <div className="weekly-card-header">
-
-                      <div>
-                        <h4>
-                          Week {week}
-                        </h4>
-
-                        {milestone?.title && (
-                          <p className="milestone-title">
-                            {milestone.title}
-                          </p>
-                        )}
-                      </div>
-
+              milestones.map((m, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '8px'
+                      }}
+                    >
                       <span
-                        className={`week-status ${
-                          weekStatus === 'Completed'
-                            ? 'completed'
-                            : weekStatus === 'In Progress'
-                              ? 'in-progress'
-                              : 'not-started'
-                        }`}
+                        style={{
+                          fontWeight: 700,
+                          color: '#1e293b',
+                          fontSize: '13px'
+                        }}
                       >
-                        {weekStatus}
+                        Week {m.week || idx + 1}
                       </span>
-
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#475569',
+                          background: '#e2e8f0',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontWeight: 500
+                        }}
+                      >
+                        Planned Milestone
+                      </span>
                     </div>
 
-                    {/* ===================================== */}
-                    {/* MILESTONE DESCRIPTION */}
-                    {/* ===================================== */}
+                    <h4
+                      style={{
+                        margin: '0 0 6px 0',
+                        fontSize: '14px',
+                        color: '#0f172a',
+                        fontWeight: 600
+                      }}
+                    >
+                      {m.title || `Milestone ${idx + 1}`}
+                    </h4>
 
-                    {milestone?.description && (
-                      <div className="milestone-description">
-
-                        <strong>
-                          Planned Work
-                        </strong>
-
-                        <p>
-                          {milestone.description}
-                        </p>
-
-                      </div>
+                    {m.description && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: '13px',
+                          color: '#475569',
+                          lineHeight: 1.45
+                        }}
+                      >
+                        {m.description}
+                      </p>
                     )}
-
-                    {/* ===================================== */}
-                    {/* WEEK PROGRESS */}
-                    {/* ===================================== */}
-
-                    <div className="weekly-progress-section">
-
-                      <div className="weekly-progress-header">
-
-                        <span>
-                          Progress
-                        </span>
-
-                        <strong>
-                          {weekProgress}%
-                        </strong>
-
-                      </div>
-
-                      <div className="progress-bar">
-
-                        <div
-                          className="progress-fill"
-                          style={{
-                            width: `${weekProgress}%`
-                          }}
-                        />
-
-                      </div>
-
-                    </div>
-
-                    {/* ===================================== */}
-                    {/* ACTION */}
-                    {/* ===================================== */}
-
-                    <div className="weekly-actions">
-
-                      {!completed ? (
-                        <button
-                          type="button"
-                          className="complete-week-btn"
-                          onClick={() =>
-                            handleCompleteWeek(week)
-                          }
-                          disabled={
-                            isCompletingThisWeek
-                          }
-                        >
-                          {isCompletingThisWeek
-                            ? 'Completing...'
-                            : 'Mark Week Complete'}
-                        </button>
-                      ) : (
-                        <div className="completed-message">
-                          ✓ Week Completed
-                        </div>
-                      )}
-
-                    </div>
-
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
-
           </div>
         </div>
 

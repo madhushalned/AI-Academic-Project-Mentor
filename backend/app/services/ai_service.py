@@ -13,13 +13,14 @@ from app.crew.crew import (
 )
 
 from app.schemas.analysis_schema import (
-
     ProjectAnalysis,
-
     ProgressEvaluation,
-
-    MentorRiskAnalysis
-
+    MentorRiskAnalysis,
+    ScopeAnalysis,
+    FeasibilityAnalysis,
+    TechnologyRecommendation,
+    MilestonePlan,
+    RiskAssessment,
 )
 
 from app.services.project_service import (
@@ -31,13 +32,38 @@ from app.services.project_service import (
 )
 
 import json
-
 from datetime import datetime, timedelta, timezone
 
+
+def extract_task_pydantic_or_raw(task_output, schema_cls):
+    """Safely extract Pydantic model from CrewAI TaskOutput or fallback to raw JSON extraction."""
+    if task_output and getattr(task_output, "pydantic", None) and isinstance(task_output.pydantic, schema_cls):
+        return task_output.pydantic
+    raw = getattr(task_output, "raw", "") or ""
+    raw = raw.strip()
+    if raw.startswith("```json"):
+        raw = raw[7:].strip()
+    elif raw.startswith("```"):
+        raw = raw[3:].strip()
+    if raw.endswith("```"):
+        raw = raw[:-3].strip()
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end != -1:
+        raw_json = raw[start:end + 1]
+        try:
+            parsed = json.loads(raw_json)
+            return schema_cls.model_validate(parsed)
+        except Exception:
+            pass
+    try:
+        return schema_cls()
+    except Exception:
+        return None
+
+
 # ============================================================
-
 # PROJECT ANALYSIS
-
 # ============================================================
 
 def analyze_project(project_data: dict):
@@ -90,48 +116,42 @@ def analyze_project(project_data: dict):
 
         task_outputs = result.tasks_output
 
-        project_analysis_output = task_outputs[0].pydantic
+        project_analysis_output = extract_task_pydantic_or_raw(
+            task_outputs[0], ScopeAnalysis
+        ) or ScopeAnalysis()
 
-        feasibility_output = task_outputs[1].pydantic
+        feasibility_output = extract_task_pydantic_or_raw(
+            task_outputs[1], FeasibilityAnalysis
+        ) or FeasibilityAnalysis()
 
-        technology_output = task_outputs[2].pydantic
+        technology_output = extract_task_pydantic_or_raw(
+            task_outputs[2], TechnologyRecommendation
+        ) or TechnologyRecommendation()
 
-        planning_output = task_outputs[3].pydantic
+        planning_output = extract_task_pydantic_or_raw(
+            task_outputs[3], MilestonePlan
+        ) or MilestonePlan()
 
-        risk_output = task_outputs[4].pydantic
+        risk_output = extract_task_pydantic_or_raw(
+            task_outputs[4], RiskAssessment
+        ) or RiskAssessment()
 
         # ----------------------------------------------------
-
         # Build final ProjectAnalysis object
-
         # ----------------------------------------------------
 
         analysis = ProjectAnalysis(
-
-            project_id=project_data.get(
-
-                "project_id"
-
-            ),
-
+            project_id=project_data.get("project_id"),
             project_analysis=(
-
                 project_analysis_output.problem_statement
-
+                or project_data.get("description", "")
             ),
-
             scope=project_analysis_output,
-
             feasibility=feasibility_output,
-
             technology=technology_output,
-
-            milestones=planning_output.milestones,
-
-            risks=risk_output.risks,
-
+            milestones=planning_output.milestones if planning_output else [],
+            risks=risk_output.risks if risk_output else [],
             status="completed"
-
         )
 
         # ----------------------------------------------------
